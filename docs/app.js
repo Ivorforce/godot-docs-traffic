@@ -298,34 +298,6 @@ function buildScatter() {
   });
 }
 
-function buildTail() {
-  charts.tail = new Chart(document.getElementById("chart-tail"), {
-    type: "line",
-    data: { labels: [], datasets: [
-      { label: "cumulative share of reading", data: [], borderColor: COLORS.line,
-        backgroundColor: "rgba(9,105,218,.10)", fill: "origin",
-        borderWidth: 2, pointRadius: 0, pointHitRadius: 6 },
-    ]},
-    options: Object.assign({}, BASE, {
-      interaction: { mode: "index", intersect: false },
-      scales: {
-        x: { title: { display: true, text: "pages, most-read first" },
-             grid: { display: false },
-             ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
-        y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" },
-             grid: { color: COLORS.grid } },
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: {
-          title: (items) => `${items[0].label} most-read pages`,
-          label: (item) => `${item.formattedValue}% of this section's reading`,
-        } },
-      },
-    }),
-  });
-}
-
 function buildFunnel() {
   charts.funnel = new Chart(document.getElementById("chart-funnel"), {
     type: "bar",
@@ -499,35 +471,36 @@ function renderScatter() {
   charts.scatter.update();
 }
 
-function renderTail() {
-  const rows = [...sectionRows()].sort((a, b) => b[PV] - a[PV]);
-  const total = rows.reduce((a, r) => a + r[PV], 0) || 1;
+// How lopsided the reading is, in words rather than as a chart: at this
+// concentration a cumulative curve is a vertical wall and then a flat line, and
+// the numbers below are the whole of what it had to say.
+function renderConcentration() {
+  const pv = sectionRows().map((r) => r[PV]).sort((a, b) => b - a);
+  const total = pv.reduce((a, v) => a + v, 0) || 1;
   let running = 0;
-  const labels = [], data = [];
-  rows.forEach((r, i) => {
-    running += r[PV];
-    labels.push(String(i + 1));
-    data.push(Math.round((1000 * running) / total) / 10);
-  });
-  charts.tail.data.labels = labels;
-  charts.tail.data.datasets[0].data = data;
-  charts.tail.update();
-
-  const marks = [50, 80, 95].map((target) => {
-    const idx = data.findIndex((v) => v >= target);
-    return idx === -1 ? null : idx + 1;
-  });
-  const quiet = rows.filter((r) => r[PV] < 100).length;
-  const zero = rows.filter((r) => r[PV] === 0).length;
+  const cumulative = pv.map((v) => (100 * (running += v)) / total);
+  const rank = (target) => {
+    const idx = cumulative.findIndex((v) => v >= target);
+    return idx === -1 ? pv.length : idx + 1;
+  };
+  const quiet = pv.filter((v) => v < 100).length;
+  const zero = pv.filter((v) => v === 0).length;
   const where = state.section ? `${PREFIX}${state.section}/` : "the English stable docs";
-  document.getElementById("tail-caption").textContent =
-    `Of ${num(rows.length)} pages in ${where}, the ${marks[0]} most-read carry half ` +
-    `the reading, ${marks[1]} carry 80%, and ${marks[2]} carry 95%. ` +
-    `${num(quiet)} pages were opened fewer than 100 times, and ${num(zero)} were not ` +
-    `opened at all. A steep curve means reading is concentrated in a few pages — ` +
-    `usual for documentation, where most people arrive with one question. It says ` +
-    `nothing about whether the flatter tail is worth keeping; the pages there are ` +
-    `the ones a search engine sent someone to on the day they needed exactly that.`;
+  let text =
+    `Of ${num(pv.length)} pages in ${where}, the ${num(rank(50))} most-read carry ` +
+    `half the reading, ${num(rank(80))} carry 80%, and ${num(rank(95))} carry 95% ` +
+    `— the concentration usual for documentation, where most people arrive with ` +
+    `one question.`;
+  // Only worth saying where there is a quiet end to say it about; a small
+  // section can have none, and the sentence would then argue with nobody.
+  if (quiet > 0) {
+    text += ` ${num(quiet)} pages were opened fewer than 100 times` +
+            (zero === 1 ? `, and one not at all` :
+             zero > 1 ? `, and ${num(zero)} not at all` : ``) +
+            `. Low traffic is not low value: those are the pages a search engine ` +
+            `sent someone to on the day they needed exactly that.`;
+  }
+  document.getElementById("concentration").textContent = text;
 }
 
 function renderFunnel() {
@@ -729,7 +702,7 @@ function render() {
   renderCrumbs();
   renderSections();
   renderScatter();
-  renderTail();
+  renderConcentration();
   renderTable();
 }
 
@@ -756,7 +729,6 @@ function init() {
 
   buildSections();
   buildScatter();
-  buildTail();
   buildFunnel();
   buildDownloads();
   bindControls();
