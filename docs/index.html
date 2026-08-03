@@ -51,16 +51,6 @@
   td.path { font-size: .85rem; word-break: break-word; }
   .table-wrap { max-height: 30rem; overflow-y: auto; margin-top: .5rem; }
   .table-wrap thead th { position: sticky; top: 0; }
-  /* The data-quality notice is deliberately loud: every visitor number on the
-     upstream dashboard is affected, not just this page's. */
-  .notice {
-    border: 1px solid #d4a72c; background: #fff8c5; border-radius: 6px;
-    padding: .75rem 1rem; margin-bottom: 1.5rem;
-  }
-  .notice strong { color: #7d4e00; }
-  .notice p { margin: .5rem 0 0; font-size: .9rem; }
-  .notice details { margin: .5rem 0 0; }
-  .notice summary { cursor: pointer; font-size: .9rem; }
   .crumbs { font-size: .9rem; }
   .crumbs button {
     font: inherit; background: none; border: none; padding: 0 .15rem;
@@ -101,25 +91,6 @@ traffic against the <a href="https://github.com/godotengine/godot-docs">godot-do
 source tree, so page length and last-edit date sit next to the traffic rather
 than traffic standing alone. It is a map for people who maintain the docs — not a
 scoreboard, and not a list of pages to delete.</p>
-
-<div class="notice">
-  <strong>Visitor counts on this Plausible instance broke on 2025-10-01.</strong>
-  <p>Overnight, daily unique visitors fell roughly eighteenfold while pageviews
-  did not move at all. No change in real traffic makes that shape. Everything on
-  this page is therefore measured in <strong>pageviews</strong>, which are
-  unaffected; visitors, visits, bounce rate and session duration are not used
-  anywhere, and this version of Plausible offers no scroll depth or time-on-page
-  to fall back on. Page-quality signals here come from the docs source tree
-  instead.</p>
-  <details>
-    <summary>Show the evidence</summary>
-    <div class="chart-box short"><canvas id="chart-quality"></canvas></div>
-    <p class="caption">Daily site-wide pageviews and unique visitors, log scale.
-    The two series track each other for eight months and then separate on a
-    single day. Diagnosing the cause needs access to the server; it is not
-    visible through the stats API.</p>
-  </details>
-</div>
 
 <p id="error" hidden></p>
 
@@ -212,13 +183,12 @@ intent to download, not a completed one.</p>
 <footer id="caveats">
   <strong>Caveats</strong>
   <ul>
-    <li><strong>Visitor counts broke on 2025-10-01</strong> and are used nowhere on
-        this page. Pageviews are unaffected and are the only traffic metric here.
-        This also removes bounce rate and session duration; combined with a
-        Plausible version that offers neither scroll depth nor time on page, there
-        is no engagement signal available at all, so nothing here claims to
-        measure whether a page was <em>useful</em> — only how often it was
-        opened.</li>
+    <li><strong>Everything here is pageviews.</strong> Per-visitor and per-session
+        figures — unique visitors, bounce rate, session duration — are not
+        reliable on this analytics setup and are used nowhere. The same setup
+        offers neither scroll depth nor time on page, so there is no engagement
+        signal available at all: nothing here claims to measure whether a page
+        was <em>useful</em>, only how often it was opened.</li>
     <li>Analytics run on JavaScript. Bots, LLM crawlers, readers with scripts
         blocked, and everyone reading the docs offline or in the editor's built-in
         help are invisible. Counts are humans-with-JavaScript only, and the docs

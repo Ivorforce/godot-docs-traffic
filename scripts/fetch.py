@@ -38,8 +38,13 @@ DOCS_PATH = re.compile(r"^/([a-z]{2}(?:-[a-z]{2})?)/([^/]+)/(.*)$")
 
 
 def fetch_site_daily(client, first, last):
-    """Daily totals per hostname — powers the trend chart and the data-quality
-    chart that shows the 2025-10-01 visitor break."""
+    """Daily site totals per hostname.
+
+    Visitor counts are stored alongside pageviews here and nowhere else. Nothing
+    on the page uses them; they are kept so the README's claim that per-visitor
+    figures are unusable stays checkable against stored data rather than being
+    something a reader has to take on trust.
+    """
     rows = []
     for tag, host in (("docs", plausible.DOCS_HOST), ("www", plausible.WWW_HOST)):
         result = client.query(

@@ -4,9 +4,9 @@
    straight from disk with no server. State (section, class-reference toggle,
    filter, scatter colouring) mirrors into location.hash.
 
-   Pageviews are the only traffic metric anywhere in this file. The instance's
-   visitor counts broke on 2025-10-01 and appear exactly once, in the chart whose
-   job is to show that they broke. */
+   Pageviews are the only traffic metric anywhere in this file. Per-visitor and
+   per-session figures are not reliable on this analytics setup (see the README)
+   and never reach the page. */
 
 "use strict";
 
@@ -198,42 +198,6 @@ const crosshairs = {
 };
 
 // ---- charts -----------------------------------------------------------------
-
-function buildQuality() {
-  const q = D.quality;
-  const breakIdx = q.days.indexOf(q.break);
-  // A one-point dataset placed at the break: cheaper and more legible than a
-  // plugin, and it lands in the legend where it explains itself.
-  const marker = q.days.map((d, i) =>
-    i === breakIdx ? Math.max(...q.visitors) : null);
-  charts.quality = new Chart(document.getElementById("chart-quality"), {
-    type: "line",
-    data: {
-      labels: q.days,
-      datasets: [
-        { label: "pageviews", data: q.pageviews, borderColor: COLORS.line,
-          borderWidth: 1.5, pointRadius: 0, pointHitRadius: 4 },
-        { label: "unique visitors", data: q.visitors, borderColor: "#cf222e",
-          borderWidth: 1.5, pointRadius: 0, pointHitRadius: 4 },
-        { label: `${q.break}`, data: marker, borderColor: "#57606a",
-          borderWidth: 0, pointRadius: 4, pointStyle: "triangle" },
-      ],
-    },
-    options: Object.assign({}, BASE, {
-      interaction: { mode: "index", intersect: false },
-      scales: {
-        x: { ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 8,
-                      callback(v) { return this.getLabelForValue(v).slice(0, 7); } },
-             grid: { display: false } },
-        y: { type: "logarithmic", ticks: { callback: (v) => {
-               const l = Math.log10(v);
-               return l === Math.floor(l) ? num(v) : "";
-             } } },
-      },
-      plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
-    }),
-  });
-}
 
 function buildSections() {
   charts.sections = new Chart(document.getElementById("chart-sections"), {
@@ -737,7 +701,6 @@ function init() {
   link.textContent = DOCS.commit;
   commit.replaceChildren(link);
 
-  buildQuality();
   buildSections();
   buildScatter();
   buildTail();

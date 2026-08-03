@@ -5,6 +5,10 @@ last class is a cross-check against the dashboard CSV export the project started
 from: an independently produced file for the same window, so if the API path and
 the export disagree about a page, one of them is wrong.
 
+`data/raw/site-daily.ndjson` also carries visitor counts, and
+`TestVisitorMetricsStillUnreliable` checks that the README's reason for ignoring
+them still holds — so the pipeline would notice if the instance were fixed.
+
     python3 -m unittest discover tests
 """
 
@@ -124,6 +128,50 @@ class TestInventoryParsing(unittest.TestCase):
                          ["about/faq.rst", "classes/index.rst"])
 
 
+SITE_DAILY = ROOT / "data" / "raw" / "site-daily.ndjson"
+
+
+@unittest.skipUnless(SITE_DAILY.exists(), "run scripts/fetch.py first")
+class TestVisitorMetricsStillUnreliable(unittest.TestCase):
+    """The README justifies using pageviews only by showing that per-visitor
+    figures collapsed on 2025-10-01 and stayed collapsed. If that ever stops
+    being true — the instance is fixed, or the diagnosis was wrong — this fails,
+    and the report should reconsider what it can use."""
+
+    @classmethod
+    def setUpClass(cls):
+        per_day = {}
+        for line in SITE_DAILY.read_text().splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            agg = per_day.setdefault(row["d"], [0, 0])
+            agg[0] += row["pv"]
+            agg[1] += row["v"]
+        cls.days = sorted(per_day)
+        cls.per_day = per_day
+
+    def ratio(self, day):
+        pv, visitors = self.per_day[day]
+        return pv / max(visitors, 1)
+
+    def test_ratio_was_sane_before(self):
+        cutoff = plausible.VISITOR_METRICS_UNRELIABLE_FROM
+        # Stop a day short: the change landed part-way through the day before.
+        before = [d for d in self.days if d < cutoff][-10:-1]
+        self.assertTrue(before, "no history before the cutoff")
+        for day in before:
+            self.assertLess(self.ratio(day), 8, f"{day} should look normal")
+
+    def test_ratio_is_still_implausible_now(self):
+        recent = self.days[-30:]
+        worst = min(self.ratio(d) for d in recent)
+        self.assertGreater(
+            worst, 20,
+            "per-visitor figures now look plausible again — if the instance was "
+            "fixed, revisit the README and consider using visitor metrics")
+
+
 EXPORT = Path("/Users/lukas/dev/research/"
               "plausible-export-godotengine.org-2026-07-04_2026-08-03")
 DATA_JS = ROOT / "docs" / "data.js"
@@ -166,33 +214,34 @@ class TestGeneratedPayload(unittest.TestCase):
         game = order.index("/en/stable/getting_started/first_2d_game/index.html")
         self.assertLess(intro, game)
 
-    def test_no_visitor_metric_leaks_into_page_data(self):
-        """Visitors broke on 2025-10-01; they may appear only as the evidence
-        for that, never as a page or download metric."""
-        self.assertIn("visitors", self.payload["quality"])
-        for key in ("docs", "www", "downloads"):
-            blob = json.dumps(self.payload[key])
-            self.assertNotIn("visitor", blob.lower(), f"{key} must be pageviews only")
+    def test_no_identity_metric_reaches_the_page(self):
+        """Per-visitor and per-session figures are unreliable on this instance
+        (see README). The page says everything on it is pageviews; no field
+        derived from identity may reach it, in any section.
 
-    def test_quality_series_are_parallel(self):
-        q = self.payload["quality"]
-        self.assertEqual(len(q["days"]), len(q["pageviews"]))
-        self.assertEqual(len(q["days"]), len(q["visitors"]))
-        self.assertIn(q["break"], q["days"])
+        Checked against field names, not the serialised blob: page paths are
+        data here, and there is a class_websocketpeer.html in the class
+        reference that has nothing to do with sessions.
+        """
+        def keys(node):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    yield k
+                    yield from keys(v)
+            elif isinstance(node, list):
+                for item in node:
+                    yield from keys(item)
 
-    def test_break_is_visible_in_the_data(self):
-        """The page asserts visitors collapsed while pageviews did not. If that
-        stops being true of the stored data, the notice is lying."""
-        q = self.payload["quality"]
-        i = q["days"].index(q["break"])
-        before = slice(i - 8, i - 1)   # skip the partial day before the break
-        after = slice(i, i + 7)
-        pv_before = sum(q["pageviews"][before]) / 7
-        pv_after = sum(q["pageviews"][after]) / 7
-        v_before = sum(q["visitors"][before]) / 7
-        v_after = sum(q["visitors"][after]) / 7
-        self.assertGreater(v_before / v_after, 5, "visitors should collapse")
-        self.assertGreater(pv_after / pv_before, 0.7, "pageviews should not")
+        for key in keys(self.payload):
+            low = key.lower()
+            for term in ("visitor", "bounce", "duration", "session"):
+                self.assertNotIn(term, low, f"field {key!r} carries {term} data")
+
+    def test_row_schema_is_the_documented_seven_columns(self):
+        """app.js indexes rows positionally; a widened row silently shifts every
+        column it reads."""
+        for row in self.docs["rows"]:
+            self.assertEqual(len(row), 7)
 
     def test_sections_series_match_month_count(self):
         for name, series in self.docs["sections"].items():

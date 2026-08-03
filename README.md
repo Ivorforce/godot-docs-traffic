@@ -25,40 +25,49 @@ pageviews. So "what can be trimmed" has no easy answer here, and the report is
 built to show proportion — 26 pages carry half the reading — rather than to
 produce a deletion list.
 
-### Visitor counts break on 2025-10-01
+### Why this report only uses pageviews
 
-Godot's Plausible instance (`plausible.godot.foundation`, self-hosted) stopped
-counting unique visitors correctly on **2025-10-01**. Daily figures across the
-boundary:
+Plausible identifies a returning reader by hashing their IP address together
+with the user agent. On Godot's instance (`plausible.godot.foundation`,
+self-hosted) that identity stopped being distinguishing on 2025-10-01: daily
+unique visitors fell from ~38,000 to ~2,100 overnight while pageviews did not
+move, and the ratio has stayed there since.
 
 | date | pageviews | visitors | pageviews / visitor |
 |---|---|---|---|
 | 2025-09-29 | 133,417 | 39,131 | 3.4 |
 | 2025-09-30 | 138,333 | 26,086 | 5.3 |
-| **2025-10-01** | 132,584 | **2,690** | **49.3** |
+| 2025-10-01 | 132,584 | 2,690 | 49.3 |
 | 2025-10-02 | 130,549 | 2,470 | 52.9 |
 
-Pageviews are flat across the break; visitors fall roughly eighteenfold
-overnight, part-way through 2025-09-30 in UTC terms. Every month from 2025-02
-to 2025-09 sits at 2.7–3.4 pageviews per visitor; every month since sits between
-57 and 167. No change in real traffic produces that shape — it is a tracking or
-configuration regression.
+The most likely explanation is an infrastructure change on that date — a CDN or
+reverse proxy in front of the instance, after which Plausible hashes an upstream
+address shared by many readers rather than each reader's own. That is consistent
+with what else the data shows: country, browser, OS and device still resolve for
+~100% of traffic, so the events are intact and only the per-reader identity is
+degraded. Confirming it needs server-side access and is not visible through the
+Stats API, so this repository treats it as a property of the data source, not as
+something to diagnose.
 
-What it is *not*: the client IP is still reaching the instance. Country resolves
-for ~100% of visitors on both sides of the break, as do browser, OS and device.
-(An earlier reading of 6.3% country coverage came from a broken `countries.csv`
-in a dashboard CSV export, not from the data.) Diagnosing the cause needs
-server-side access to the instance — Plausible version, proxy configuration,
-`SECRET_KEY_BASE` — and is not visible through the Stats API.
+Consequences, and they are not severe for this report's question:
 
-Consequences for this report:
+- **Pageviews are unaffected** and are the only traffic metric used anywhere.
+- Anything derived from identity or sessions — unique visitors, visits, bounce
+  rate, session duration — is not used. Geolocation is intact but not used
+  either; this report has no geographic question.
+- This Plausible version offers no `scroll_depth` and no `time_on_page`, so there
+  is no per-pageview engagement metric to fall back on. Page-quality signals come
+  from the docs source tree (length, staleness) instead.
 
-- **Pageviews are the primary metric** and are unaffected throughout.
-- **`visitors`, `visits`, `bounce_rate` and `visit_duration` are not usable after
-  2025-10-01** and are not charted for that period.
-- This version of Plausible offers no `scroll_depth` and no `time_on_page`, so
-  there is no per-pageview engagement metric to fall back on. Page "quality"
-  signals come from the docs source tree (length, staleness) instead.
+None of this appears on the page itself. A reader looking at documentation
+traffic has no way to know these metrics were ever an option, and a prominent
+notice about a metric that is absent would mislead more than it informs. The
+page states plainly that everything on it is pageviews and that no engagement
+signal exists; the reasoning lives here.
+
+If you run the instance, `scripts/fetch.py` stores daily visitor counts in
+`data/raw/site-daily.ndjson` — unused by the report, kept so the table above
+stays checkable.
 
 ### Publishing clearance
 

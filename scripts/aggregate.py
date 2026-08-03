@@ -10,9 +10,8 @@ refetching anything.
 
 Two rules run through the whole file:
 
-  * Pageviews only. This instance's visitor, visit, bounce and duration numbers
-    broke on 2025-10-01 (see README) and are emitted only as the evidence for
-    that break, never as a page metric.
+  * Pageviews only. Per-visitor and per-session figures are not reliable on this
+    analytics setup (see the README) and are never emitted.
   * A docs URL counts as a page only if it resolves to a source file in
     godot-docs. The rest — stale paths, Sphinx's search page, scanner noise — is
     counted and reported, not silently dropped.
@@ -160,26 +159,6 @@ def build_downloads(month):
     }
 
 
-def build_quality():
-    """Daily site totals, the evidence for the 2025-10-01 visitor break.
-
-    Charted on the page itself rather than asserted in a caveat: the claim that
-    a metric is broken should be checkable by the reader.
-    """
-    per_day = collections.defaultdict(lambda: [0, 0])
-    for row in store.read("site-daily"):
-        agg = per_day[row["d"]]
-        agg[0] += row["pv"]
-        agg[1] += row["v"]
-    days = sorted(per_day)
-    return {
-        "break": plausible.VISITOR_BREAK,
-        "days": days,
-        "pageviews": [per_day[d][0] for d in days],
-        "visitors": [per_day[d][1] for d in days],
-    }
-
-
 def build_docs(months, inventory):
     newest = months[-1]
     current = load_docs_month(newest)
@@ -269,11 +248,9 @@ def main():
                                .strftime("%Y-%m-%dT%H:%M:%SZ"),
         "months": months,
         "period": plausible.month_range(months[-1]),
-        "visitorBreak": plausible.VISITOR_BREAK,
         "docs": docs,
         "www": build_www(months),
         "downloads": build_downloads(months[-1]),
-        "quality": build_quality(),
     }
 
     total = sum(r[1] for r in docs["rows"])

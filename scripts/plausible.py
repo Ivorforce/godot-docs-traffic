@@ -34,11 +34,11 @@ DEFAULT_SITE = "godotengine.org"
 DOCS_HOST = "docs.godotengine.org"
 WWW_HOST = "godotengine.org"
 
-# The instance stopped counting unique visitors correctly on this date; see the
-# README. Everything session-derived is unusable from here on, so the aggregator
-# refuses to chart those metrics past it rather than relying on a caller to
-# remember.
-VISITOR_BREAK = "2025-10-01"
+# Per-visitor and per-session figures from this instance are not usable — unique
+# visitors, visits, bounce rate and session duration all collapsed on 2025-10-01
+# and have not recovered (see the README). Pageviews are unaffected, and are the
+# only traffic metric this pipeline reports.
+VISITOR_METRICS_UNRELIABLE_FROM = "2025-10-01"
 
 MAX_LIMIT = 10000  # server-side cap on pagination.limit
 
