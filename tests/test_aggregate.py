@@ -274,6 +274,149 @@ class TestGeneratedPayload(unittest.TestCase):
         for name, series in self.docs["sections"].items():
             self.assertEqual(len(series), len(self.payload["months"]), name)
 
+    def test_listed_urls_are_all_removed_pages(self):
+        """The heading promises removed pages. A URL that was never a page, or
+        one that is forwarded, would make the table's premise false."""
+        for url, pv, removed_ts in self.docs["unforwarded"]:
+            self.assertGreater(removed_ts, 0, url)
+            self.assertGreater(pv, 0, url)
+
+    def test_stale_kinds_account_for_every_stale_pageview(self):
+        """The caption states these as parts of the total. If they do not sum
+        to it, the numbers quietly stop adding up."""
+        self.assertEqual(sum(self.docs["staleKinds"].values()),
+                         self.docs["staleTotal"])
+        self.assertEqual(sum(self.docs["staleKindUrls"].values()),
+                         self.docs["staleUrls"])
+
+    def test_unforwarded_total_matches_its_kinds(self):
+        """The table's own total has to be the buckets it is drawn from, or the
+        list and the sentence above it disagree."""
+        kinds = self.docs["staleKinds"]
+        self.assertEqual(
+            self.docs["unforwardedTotal"],
+            kinds.get("noRedirect", 0) + kinds.get("removedDuring", 0))
+
+    def test_redirects_were_actually_loaded(self):
+        """If the sparse checkout stops fetching redirects.csv, every forwarded
+        page silently reappears as a dead link."""
+        self.assertGreater(self.docs["redirectCount"], 100)
+        self.assertGreater(self.docs["staleKinds"].get("redirected", 0), 0)
+
+    def test_window_start_matches_the_reported_period(self):
+        """app.js marks a removal as "during" by comparing against it, so a
+        wrong windowStart silently reclassifies every row."""
+        import datetime
+        first = datetime.date.fromisoformat(self.payload["period"][0])
+        self.assertEqual(
+            datetime.datetime.fromtimestamp(
+                self.docs["windowStart"], datetime.timezone.utc).date(),
+            first)
+
+
+class TestRedirects(unittest.TestCase):
+    """`_static/redirects.csv` is applied by 404.rst in the reader's browser,
+    so a forwarded URL still records a pageview at the path it left behind.
+    Matching it wrong turns "reader arrived fine" into "reader hit a dead end",
+    which is the whole distinction this table rests on.
+    """
+
+    CSV = ("source,destination\n"
+           "/about/index.html,/index.html\n"
+           "/development/compiling/for_web.html,/contributing/compiling.html\n"
+           "\n"
+           "/legacy.html,https://example.com/moved\n")
+
+    def redirects(self):
+        return dict(inventory.parse_redirects(self.CSV))
+
+    def test_header_and_blank_lines_are_not_redirects(self):
+        rows = inventory.parse_redirects(self.CSV)
+        self.assertEqual(len(rows), 3)
+        self.assertNotIn("source", dict(rows))
+
+    def test_matches_on_any_path_suffix(self):
+        """404.rst uses pathname.endsWith(source), so a version prefix does not
+        prevent a match."""
+        self.assertEqual(
+            aggregate.redirect_for("/en/stable/about/index.html", self.redirects()),
+            "/index.html")
+
+    def test_matches_a_suffix_below_the_version_root(self):
+        """The compiling pages moved under contributing/, so the stored source
+        is a tail of the URL people actually request."""
+        self.assertEqual(
+            aggregate.redirect_for(
+                "/en/stable/contributing/development/compiling/for_web.html",
+                self.redirects()),
+            "/contributing/compiling.html")
+
+    def test_unrelated_url_is_not_forwarded(self):
+        self.assertIsNone(
+            aggregate.redirect_for("/en/stable/tutorials/2d/index.html",
+                                   self.redirects()))
+
+    def test_a_longer_name_ending_in_a_source_is_not_a_match(self):
+        """Suffix matching must break on "/" — "my_legacy.html" ends with
+        "legacy.html" as text but is a different page."""
+        self.assertIsNone(
+            aggregate.redirect_for("/en/stable/my_legacy.html", self.redirects()))
+        self.assertEqual(
+            aggregate.redirect_for("/en/stable/legacy.html", self.redirects()),
+            "https://example.com/moved")
+
+    def test_absent_redirects_file_leaves_every_page_unforwarded(self):
+        """A sparse checkout that stops fetching the CSV must not quietly
+        reclassify the whole table."""
+        self.assertIsNone(aggregate.redirect_for("/en/stable/about/index.html", {}))
+
+
+class TestRemovalDates(unittest.TestCase):
+    """A URL with no source file is not automatically a stale bookmark.
+
+    Traffic to a page removed part-way through the window is ordinary reading,
+    not people arriving at a dead link, and the two must not be presented alike.
+    """
+
+    def test_removals_take_the_most_recent_deletion(self):
+        log = "\n1700000000\n\nold/page.rst\n\n1600000000\n\nold/page.rst\n"
+        self.assertEqual(inventory.parse_removals(log),
+                         {"old/page.rst": 1700000000})
+
+    def test_removals_ignore_non_rst_paths(self):
+        log = "\n1700000000\n\nconf.py\nimg/screenshot.png\ngone.rst\n"
+        self.assertEqual(inventory.parse_removals(log), {"gone.rst": 1700000000})
+
+    def test_a_url_that_was_never_a_page_is_not_called_removed(self):
+        start = aggregate.month_start_ts("2026-07")
+        self.assertEqual(aggregate.stale_kind(None, start, None), "neverPage")
+        self.assertEqual(aggregate.stale_kind(0, start, None), "neverPage")
+
+    def test_removal_during_the_window_is_kept_apart(self):
+        start = aggregate.month_start_ts("2026-07")
+        self.assertEqual(aggregate.stale_kind(start - 1, start, None),
+                         "noRedirect")
+        self.assertEqual(aggregate.stale_kind(start, start, None),
+                         "removedDuring")
+        self.assertEqual(aggregate.stale_kind(start + 86400, start, None),
+                         "removedDuring")
+
+    def test_a_forwarded_page_is_never_called_unforwarded(self):
+        """The reader reached their destination; the pageview at the old URL is
+        an artifact of the redirect running in the browser."""
+        start = aggregate.month_start_ts("2026-07")
+        for removed_ts in (None, start - 1, start + 1):
+            self.assertEqual(
+                aggregate.stale_kind(removed_ts, start, "/somewhere.html"),
+                "redirected")
+
+    def test_month_start_is_the_first_of_the_month(self):
+        import datetime
+        ts = aggregate.month_start_ts("2026-07")
+        self.assertEqual(
+            datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).date(),
+            datetime.date(2026, 7, 1))
+
 
 @unittest.skipUnless(EXPORT.exists() and DATA_JS.exists(),
                      "needs the CSV export and a generated data.js")

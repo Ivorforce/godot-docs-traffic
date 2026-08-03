@@ -35,9 +35,8 @@ OUT = ROOT / "docs" / "data.js"
 
 URL_PREFIX = "/en/stable/"
 
-# How many stale inbound paths to list. They are useful to docs maintainers —
-# each one is a URL people still reach for that no longer exists — but the tail
-# is thousands of scanner hits, so it is cut and the cut is reported.
+# How many unmatched inbound URLs to list. They are useful to docs maintainers,
+# but the tail is thousands of scanner hits, so it is cut and the cut reported.
 STALE_LIMIT = 25
 
 DOWNLOAD_HOST = "downloads.godotengine.org"
@@ -56,6 +55,50 @@ def canonical(url):
     if url.endswith("/") and url != URL_PREFIX:
         return url + "index.html"
     return url
+
+
+def month_start_ts(month):
+    """Unix timestamp of midnight on the first of a "YYYY-MM" month.
+
+    Compared against git commit times, which are absolute; a few hours of
+    timezone slack does not matter for "was this page still here?".
+    """
+    start = datetime.date.fromisoformat(plausible.month_range(month)[0])
+    return int(datetime.datetime.combine(
+        start, datetime.time(), datetime.timezone.utc).timestamp())
+
+
+def redirect_for(url, redirects):
+    """The redirect 404.rst would apply to this URL, or None.
+
+    Mirrors its matching exactly: `pathname.endsWith(source)`, first match in
+    file order wins. Checking each "/"-anchored suffix against a dict is the
+    same test as scanning every source, without the 1.3M string comparisons.
+    """
+    cut = url.find("/", 1)
+    while cut != -1:
+        hit = redirects.get(url[cut:])
+        if hit is not None:
+            return hit
+        cut = url.find("/", cut + 1)
+    return redirects.get(url)
+
+
+def stale_kind(removed_ts, window_start, redirected):
+    """Why a trafficked URL has no page, which decides what its count means.
+
+    Redirection comes first: if 404.rst forwards the URL, the reader arrived
+    where they meant to and the pageview here is an artifact of the redirect
+    running in the browser. Otherwise a page removed before the window was gone
+    for all of it, so every view is a reader who hit a dead end — the only
+    bucket anyone can act on. One removed during the window was readable for
+    part of it. A URL that was never a page here is neither.
+    """
+    if redirected:
+        return "redirected"
+    if not removed_ts:
+        return "neverPage"
+    return "removedDuring" if removed_ts >= window_start else "noRedirect"
 
 
 def load_docs_month(month):
@@ -195,7 +238,25 @@ def build_docs(months, inventory):
             top = rest.split("/")[0] if "/" in rest else "(root)"
             sections[top][month] += pv
 
-    stale_sorted = sorted(stale.items(), key=lambda kv: -kv[1])
+    removed = inventory.get("removed", {})
+    # Later duplicate sources are unreachable — 404.rst stops at the first
+    # match — so the first one wins here too.
+    redirects = {}
+    for source, destination in inventory.get("redirects", []):
+        redirects.setdefault(source, destination)
+
+    window_start = month_start_ts(newest)
+    kinds, urls = collections.Counter(), collections.Counter()
+    unforwarded = []
+    for url, pv in stale.items():
+        kind = stale_kind(removed.get(url), window_start,
+                          redirect_for(url, redirects))
+        kinds[kind] += pv
+        urls[kind] += 1
+        if kind in ("noRedirect", "removedDuring"):
+            unforwarded.append([url, pv, removed[url]])
+    unforwarded.sort(key=lambda r: -r[1])
+
     return {
         "branch": inventory["branch"],
         "commit": inventory["commit"][:9],
@@ -204,9 +265,15 @@ def build_docs(months, inventory):
         "rows": rows,
         "funnel": build_funnel(inventory),
         "sections": {k: [v.get(m, 0) for m in months] for k, v in sections.items()},
-        "stale": [[u, pv] for u, pv in stale_sorted[:STALE_LIMIT]],
+        "unforwarded": unforwarded[:STALE_LIMIT],
+        "unforwardedTotal": sum(r[1] for r in unforwarded),
+        "unforwardedUrls": len(unforwarded),
         "staleTotal": sum(stale.values()),
         "staleUrls": len(stale),
+        "staleKinds": dict(kinds),
+        "staleKindUrls": dict(urls),
+        "redirectCount": len(redirects),
+        "windowStart": window_start,
         "matchedViews": sum(matched.values()),
         "i18nViews": sum(i18n.values()),
     }
@@ -260,11 +327,13 @@ def main():
     print(f"matched pageviews: {total:,}  "
           f"stale/unmatched: {docs['staleTotal']:,} across {docs['staleUrls']:,} urls "
           f"({docs['staleTotal'] / max(total + docs['staleTotal'], 1):.1%})")
+    for kind, views in sorted(docs["staleKinds"].items(), key=lambda kv: -kv[1]):
+        print(f"    {kind:14} {docs['staleKindUrls'][kind]:>6,} urls {views:>8,} pv")
     print(f"months: {len(months)} ({months[0]} .. {months[-1]})")
 
     if args.check:
-        print("\ntop stale inbound paths:")
-        for url, pv in docs["stale"][:10]:
+        print("\nremoved pages with no redirect:")
+        for url, pv, _ in docs["unforwarded"][:10]:
             print(f"  {pv:>7,}  {url}")
         return
 

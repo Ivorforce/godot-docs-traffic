@@ -614,24 +614,40 @@ function renderTable() {
 function renderStale() {
   const tbody = document.querySelector("#stale-table tbody");
   tbody.replaceChildren();
-  for (const [url, pv] of DOCS.stale) {
+  for (const [url, pv, removedTs] of DOCS.unforwarded) {
     const tr = document.createElement("tr");
     const td0 = document.createElement("td");
     td0.className = "path";
     td0.textContent = url;
     const td1 = document.createElement("td");
     td1.textContent = num(pv);
-    tr.append(td0, td1);
+    const td2 = document.createElement("td");
+    // A removal inside the traffic window means the page was live for part of
+    // it, so the count is not evidence of a dead link. Say so in the row
+    // rather than leaving the reader to compare dates.
+    td2.textContent = !removedTs
+      ? "—"
+      : removedTs >= DOCS.windowStart
+        ? `${ageLabel(removedTs)} (during)`
+        : ageLabel(removedTs);
+    tr.append(td0, td1, td2);
     tbody.appendChild(tr);
   }
+
+  const kinds = DOCS.staleKinds || {};
+  const urls = DOCS.staleKindUrls || {};
+  const shown = DOCS.unforwarded.length;
   document.getElementById("stale-caption").textContent =
-    `URLs that still receive traffic but have no source file in godot-docs at ` +
-    `${DOCS.commit} — moved pages, old bookmarks, Sphinx's own search page, and ` +
-    `scanner noise. In total ${num(DOCS.staleTotal)} pageviews across ` +
-    `${num(DOCS.staleUrls)} URLs; the top ${DOCS.stale.length} are listed. These ` +
-    `are excluded from every other figure on this page. A path high on this list ` +
-    `is one people keep reaching for, which usually means a redirect worth ` +
-    `keeping rather than a page worth restoring.`;
+    `${num(DOCS.unforwardedTotal)} pageviews across ` +
+    `${num(DOCS.unforwardedUrls)} URLs` +
+    (shown < DOCS.unforwardedUrls ? `, of which the top ${shown} are listed` : "") +
+    `. For scale, this is one part of the ${num(DOCS.staleTotal)} pageviews ` +
+    `excluded from every other figure on this page because they have no source ` +
+    `file at ${DOCS.commit}: ${num(kinds.redirected || 0)} of those were ` +
+    `forwarded by the ${num(DOCS.redirectCount)} redirects on file, and ` +
+    `${num(kinds.neverPage || 0)} went to URLs that were never pages here — ` +
+    `Sphinx's own search page, downloadable examples, mistyped paths and ` +
+    `scanner traffic across ${num(urls.neverPage || 0)} URLs.`;
 }
 
 function renderDownloads() {

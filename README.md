@@ -101,9 +101,14 @@ nothing sensitive ever entered history.
   hostname (nine requests); older months fetch the English subset in one.
 - `scripts/inventory.py` — clones `godot-docs` at the `stable` branch (which is
   what Read the Docs serves at `/en/stable/`, not `master`) and records each
-  page's word count, last-edit timestamp and toctree position. Blob-filtered and
-  sparse, because the repository is ~450 MB and almost all of it is screenshots;
-  history is kept in full, since last-edit dates are the entire point.
+  page's word count, last-edit timestamp and toctree position, plus the date
+  every *removed* page left the tree and the redirects that forward the URLs
+  they left behind. Blob-filtered and
+  sparse (`*.rst` plus `_static/redirects.csv`), because the repository is
+  ~450 MB and almost all of it is screenshots; history is kept in full, since
+  last-edit dates are the entire point. The sparse spec is reapplied on every
+  run, so a cache built by an older revision picks up newly needed files rather
+  than silently missing them.
 - `scripts/aggregate.py` — joins the two into `docs/data.js`, a single
   `window.DATA = {…}` assignment.
 - `docs/` — the page. Hand-written `index.html`, vanilla `app.js`, and a
@@ -120,9 +125,34 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
 - **page** — a URL that resolves to a `.rst` file in godot-docs at the recorded
   commit. Directory URLs and `index.html` are folded onto one canonical form, or
   a page's traffic would split across two rows and each would look half as read.
-  URLs with no source file (~2% of pageviews: moved paths, Sphinx's search page,
-  scanner noise) are excluded from every figure and listed separately, so the
-  exclusion is visible rather than silent.
+  URLs with no source file (~2% of pageviews: removed pages, Sphinx's search
+  page, scanner noise) are excluded from every figure and listed separately, so
+  the exclusion is visible rather than silent.
+- **removed** — the commit that deleted a page's source file, from a second
+  `git log --diff-filter=D` walk. A page removed *before* the traffic window
+  was gone for all of it, so every view is a reader hitting a dead end; one
+  removed *during* the window was readable for part of it, and its views are
+  partly ordinary reading.
+- **forwarded** — whether `_static/redirects.csv` sends the URL somewhere.
+  Read the Docs caps its own redirects at ~50 and godot-docs needs hundreds, so
+  the overflow lives in that file and is applied by `404.rst` **in the reader's
+  browser**. That is what makes it measurable here: an RTD redirect answers with
+  a 301 and the old URL never renders, recording nothing, while a redirect from
+  the CSV runs *on* the 404 page, after the analytics script has already fired
+  against the old path. Every forwarded URL people still reach therefore appears
+  in the traffic data — and read naively, looks exactly like a dead link.
+
+  Joining the file is what makes the table actionable rather than merely
+  descriptive. For July 2026, of 26,854 pageviews to URLs with no source file:
+  13,793 (51%) were forwarded and the reader arrived where they meant to, 9,200
+  went to URLs that were never pages here (Sphinx's search page, downloadable
+  examples, `null` paths, scanner noise), and **3,861 across 307 URLs** were
+  removed pages with nothing forwarding them. Only that last group is worth
+  anyone's time, and it is a third of what the unjoined list implied. The
+  inference holds in one direction only, which is enough: since a server-side
+  redirect records no pageview, a URL that reaches this report is not covered by
+  one, so absence from the CSV means genuinely unforwarded rather than possibly
+  handled elsewhere.
 - **translation reads** — pageviews for the same path summed across all
   non-English languages and all doc versions, so a page's weight in translation
   shows up next to its English figure.

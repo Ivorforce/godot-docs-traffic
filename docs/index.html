@@ -179,12 +179,26 @@ its English column suggests. <em>Words</em> approximates the prose in the source
 file — notes and warnings counted, code blocks and table markup not — for
 comparing pages against each other rather than as a typographic measure.</p>
 
-<h2>Paths people still reach for</h2>
+<h2>Removed pages with no redirect</h2>
 <table id="stale-table">
-  <thead><tr><th>URL</th><th>pageviews</th></tr></thead>
+  <thead><tr><th>URL</th><th>pageviews</th><th>left the manual</th></tr></thead>
   <tbody></tbody>
 </table>
 <p class="caption" id="stale-caption"></p>
+<p class="caption">Pages that were removed from the manual, still receive
+traffic, and are not forwarded anywhere — so these readers land on the
+&ldquo;page not found&rdquo; page and have to start over. Most removed pages
+<em>are</em> forwarded, by
+<a href="https://github.com/godotengine/godot-docs/blob/master/_static/redirects.csv"><code>_static/redirects.csv</code></a>,
+and those are left out of this table: their readers arrive where they meant to.
+This list is what the redirects file does not yet cover. A date inside the
+reporting period means the page was readable for part of it, so its count is
+partly ordinary reading rather than missed arrivals.</p>
+<p class="caption">Read the Docs applies its own redirects before the page
+renders, so those never reach this report at all — which is why absence from
+this table means forwarded or never removed, not unmeasured. The redirects file
+is read at the docs commit shown at the top of the page; entries added since
+then will still appear here.</p>
 
 <h2>What people download</h2>
 <div class="chart-box"><canvas id="chart-downloads"></canvas></div>
@@ -213,10 +227,12 @@ intent to download, not a completed one.</p>
         help are invisible. Counts are humans-with-JavaScript only, and the docs
         are read in all of those other ways.</li>
     <li>A URL counts as a page only if it resolves to a source file in
-        godot-docs at the commit shown above. That drops stale paths, Sphinx's
-        search page and scanner noise — about 2% of raw pageviews, listed in
-        "paths people still reach for" so the loss is visible rather than
-        silent.</li>
+        godot-docs at the commit shown above. That drops removed pages, Sphinx's
+        search page and scanner noise — about 2% of raw pageviews, accounted for
+        under "removed pages with no redirect" so the loss is visible rather
+        than silent. Roughly half of it is readers being successfully forwarded
+        by the docs' own redirects, which record a pageview at the old URL
+        before sending them on.</li>
     <li><strong>Low traffic is not low value.</strong> A page read a few hundred
         times a month may be the one that unblocks a contributor, documents the
         thing nobody else wrote down, or matters precisely because it is

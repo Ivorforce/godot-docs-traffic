@@ -21,6 +21,8 @@ cannot come from traffic data at all.
 Output: data/inventory.json. Requires git; clones into .cache/ (gitignored).
 """
 
+import csv
+import io
 import json
 import re
 import subprocess
@@ -43,6 +45,16 @@ URL_PREFIX = "/en/stable/"
 # reflect sync commits rather than anyone writing prose.
 GENERATED_DIRS = ("classes",)
 
+# Read the Docs' own redirects are capped at ~50, and godot-docs needs hundreds,
+# so the overflow lives in this file and is applied by 404.rst in the browser.
+# That difference is what makes it readable here at all: an RTD redirect answers
+# with a 301 and the old URL never renders, so it records no pageview, while a
+# redirect from this file runs *on* the 404 page — the analytics script has
+# already fired against the old URL by the time the reader is forwarded. So
+# every URL in this file that people still reach shows up in our traffic data,
+# and without it we would read "successfully forwarded" as "dead link".
+REDIRECTS = "_static/redirects.csv"
+
 
 def run(args, cwd=None, check=True):
     return subprocess.run(args, cwd=cwd, check=check, text=True,
@@ -53,22 +65,25 @@ def ensure_clone():
     """Clone or update the docs source at BRANCH.
 
     Blob-filtered and sparse: the repository is ~450 MB, almost all of it
-    screenshots, and only .rst files are ever read. History is kept in full —
-    last-edit dates are the whole point of the staleness signal, and a shallow
-    clone would collapse every file onto the clone date.
+    screenshots, and only .rst files and the redirects table are ever read.
+    History is kept in full — last-edit dates are the whole point of the
+    staleness signal, and a shallow clone would collapse every file onto the
+    clone date.
     """
     if not (CACHE / ".git").exists():
         CACHE.parent.mkdir(parents=True, exist_ok=True)
         print(f"cloning {REPO} -> {CACHE} (blob-filtered)", file=sys.stderr)
         run(["git", "clone", "--filter=blob:none", "--no-checkout",
              "--branch", BRANCH, REPO, str(CACHE)])
-        run(["git", "sparse-checkout", "set", "--no-cone", "/**/*.rst", "/*.rst"],
-            cwd=CACHE)
-        run(["git", "checkout", BRANCH], cwd=CACHE)
     else:
         print(f"updating {CACHE}", file=sys.stderr)
         run(["git", "fetch", "--filter=blob:none", "origin", BRANCH], cwd=CACHE)
-        run(["git", "checkout", "-B", BRANCH, f"origin/{BRANCH}"], cwd=CACHE)
+    # Set on every run, not only at clone time, so a cache made by an earlier
+    # version of this script picks up newly needed paths instead of silently
+    # missing them.
+    run(["git", "sparse-checkout", "set", "--no-cone",
+         "/**/*.rst", "/*.rst", "/" + REDIRECTS], cwd=CACHE)
+    run(["git", "checkout", "-B", BRANCH, f"origin/{BRANCH}"], cwd=CACHE)
     return run(["git", "rev-parse", "HEAD"], cwd=CACHE).strip()
 
 
@@ -234,9 +249,58 @@ def last_edits():
     return stamps
 
 
+def removals():
+    """{source path: unix timestamp of the commit that removed it}.
+
+    Traffic to a URL with no source file means one of two very different
+    things, and only history can tell them apart: a page that left the manual
+    long ago and is still bookmarked, or a URL that was never a page here at
+    all (Sphinx's search page, scanner noise, invented paths). Without the
+    date, a page removed *during* the traffic window looks like a stale
+    bookmark while its counts are really ordinary reading of a live page.
+
+    Same single-walk shape as last_edits(), filtered to deletions.
+    """
+    return parse_removals(run(
+        ["git", "log", "--diff-filter=D", "--format=%n%ct", "--name-only",
+         "--no-renames"], cwd=CACHE))
+
+
+def parse_redirects(text):
+    """Ordered [(source, destination)] from _static/redirects.csv.
+
+    Order is kept because 404.rst forwards to the first source that matches,
+    and some sources are suffixes of others.
+    """
+    rows = []
+    for row in csv.reader(io.StringIO(text)):
+        if len(row) < 2:
+            continue
+        source, destination = row[0].strip(), row[1].strip()
+        if source == "source" or not source.startswith("/"):
+            continue  # header, or a shape 404.rst could not match anyway
+        rows.append((source, destination))
+    return rows
+
+
+def parse_removals(log):
+    stamps, current = {}, None
+    for line in log.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.isdigit():
+            current = int(line)
+        elif current and line.endswith(".rst") and line not in stamps:
+            # Newest-first, so the most recent removal of a path wins.
+            stamps[line] = current
+    return stamps
+
+
 def main():
     head = ensure_clone()
     stamps = last_edits()
+    removed = removals()
 
     pages, toctrees = {}, {}
     for path in sorted(CACHE.rglob("*.rst")):
@@ -258,6 +322,17 @@ def main():
         if entries:
             toctrees[rel] = entries
 
+    # A path deleted and later restored is a live page, not a removal.
+    live = {p["src"] for p in pages.values()}
+    gone = {url_for(rel): ts for rel, ts in removed.items() if rel not in live}
+
+    redirect_file = CACHE / REDIRECTS
+    redirects = (parse_redirects(redirect_file.read_text(encoding="utf-8"))
+                 if redirect_file.exists() else [])
+    if not redirects:
+        print(f"warning: no redirects read from {REDIRECTS}; every removed page "
+              f"will look unforwarded", file=sys.stderr)
+
     missing = sum(1 for p in pages.values() if p["edited"] is None)
     generated = sum(1 for p in pages.values() if p["generated"])
     OUT.parent.mkdir(parents=True, exist_ok=True)
@@ -266,12 +341,16 @@ def main():
         "commit": head,
         "urlPrefix": URL_PREFIX,
         "pages": pages,
+        "redirects": redirects,
+        "removed": gone,
         "toctrees": toctrees,
     }, sort_keys=True, separators=(",", ":")) + "\n")
 
     print(f"{len(pages):,} pages ({generated:,} generated, "
           f"{len(pages) - generated:,} hand-written), "
-          f"{len(toctrees):,} toctrees, {missing} without a git date -> {OUT}")
+          f"{len(toctrees):,} toctrees, {missing} without a git date, "
+          f"{len(gone):,} removed pages remembered, "
+          f"{len(redirects):,} redirects -> {OUT}")
 
 
 if __name__ == "__main__":
