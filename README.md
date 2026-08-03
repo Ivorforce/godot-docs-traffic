@@ -176,10 +176,44 @@ already stored, always refreshing the newest.
 
 Tests: `python3 -m unittest discover tests`. They cover URL canonicalisation,
 download-link parsing, the rst parsers, and the invariants the page depends on —
-including a check that no visitor-derived number leaks into page data, and one
-that the 2025-10-01 collapse is still visible in the stored data, so the notice
-on the page cannot quietly become a lie. Where the CSV export is present they
-also cross-check page totals against it, since it was produced independently of
-the API path.
+including a check that no identity-derived number reaches the page, and one that
+per-visitor figures are still implausible, so if the instance is ever fixed the
+suite says so instead of the constraint quietly outliving its reason. Where the
+CSV export is present they also cross-check page totals against it, since it was
+produced independently of the API path.
+
+### Verifying the page
+
+**The tests do not cover `docs/app.js`.** Everything above runs against the
+Python payload, and the payload has been right every time the page was wrong.
+The chart bug that made the section chart's reading bars sum to 89.6% instead of
+100% lived entirely in JavaScript grouping logic and no test could see it.
+
+Headless Chrome renders `file://` directly, which is enough to check both that
+the page runs and what it computed:
+
+```sh
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CHROME" --headless --disable-gpu --virtual-time-budget=8000 \
+  --dump-dom "file://$PWD/docs/index.html#s=tutorials&f=pages" > /tmp/dom.html
+```
+
+The dumped DOM carries everything `app.js` wrote into the document — the stat
+tiles, both tables, the generated captions — so those can be asserted directly.
+Chart contents live in canvas and need one extra step: copy `index.html`, append
+a script that reads `Chart.getChart("chart-sections").data` into a `<pre>`, dump
+that instead, and delete the copy. That is how the 89.6% was found, and it is
+worth repeating after any change to the charts.
+
+Two cautions. Chrome's stderr carries `ERROR:gpu/...` lines in headless mode that
+have nothing to do with the page, so grepping stderr for "error" gives false
+positives. And a checkbox set from JavaScript does not serialise its `checked`
+attribute into the dumped DOM — assert on the data the toggle changes, not on
+the control.
+
+Not yet automated. A `scripts/check_page.py` wrapping the above and asserting a
+few invariants (section shares summing to 100% across several hash states) would
+close the gap; it would need Chrome present, so it would sit outside the unit
+suite.
 
 Licensed [MIT](LICENSE).
