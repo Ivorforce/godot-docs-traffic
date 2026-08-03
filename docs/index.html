@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Godot documentation traffic</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto; padding: 1.5rem 1rem 3rem; max-width: 960px;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #24292f; background: #fff;
+  }
+  h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.1rem; margin: 2rem 0 .25rem; }
+  h3 { margin: 1.25rem 0 .25rem; font-size: 1rem; }
+  a { color: #0969da; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .meta { color: #57606a; margin-bottom: 1.25rem; }
+  .framing { margin-bottom: 1.25rem; }
+  .meta, .framing, .caption, dl.defs dd, footer ul, footer p, .notice p { max-width: 72ch; }
+  [id] { scroll-margin-top: 4rem; }
+  .controls {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .75rem;
+    padding: .6rem .75rem; background: #f6f8fa; border: 1px solid #d0d7de;
+    border-radius: 6px; position: sticky; top: 0; z-index: 2;
+  }
+  .controls input[type="search"] { font: inherit; padding: .15rem .4rem; min-width: 12rem; }
+  .range-group button {
+    font: inherit; padding: .15rem .6rem; border: 1px solid #d0d7de;
+    background: #fff; cursor: pointer;
+  }
+  .range-group button:first-child { border-radius: 6px 0 0 6px; }
+  .range-group button:last-child { border-radius: 0 6px 6px 0; }
+  .range-group button + button { border-left: none; }
+  .range-group button[aria-pressed="true"] { background: #0969da; color: #fff; border-color: #0969da; }
+  h2 .range-group { font-size: .8rem; font-weight: 400; margin-left: .5rem; }
+  .caption { color: #57606a; font-size: .85rem; margin: .25rem 0 0; }
+  .chart-box { position: relative; height: 300px; margin-top: .5rem; }
+  .chart-box.tall { height: 380px; }
+  .chart-box.short { height: 170px; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: right; padding: .25rem .5rem; border-bottom: 1px solid #d8dee4;
+           font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  th { cursor: pointer; user-select: none; background: #f6f8fa; white-space: nowrap; }
+  th.sorted::after { content: "\00A0▾"; color: #57606a; }
+  th.sorted.asc::after { content: "\00A0▴"; }
+  #stale-table th { cursor: default; }
+  td.path { font-size: .85rem; word-break: break-word; }
+  .table-wrap { max-height: 30rem; overflow-y: auto; margin-top: .5rem; }
+  .table-wrap thead th { position: sticky; top: 0; }
+  /* The data-quality notice is deliberately loud: every visitor number on the
+     upstream dashboard is affected, not just this page's. */
+  .notice {
+    border: 1px solid #d4a72c; background: #fff8c5; border-radius: 6px;
+    padding: .75rem 1rem; margin-bottom: 1.5rem;
+  }
+  .notice strong { color: #7d4e00; }
+  .notice p { margin: .5rem 0 0; font-size: .9rem; }
+  .notice details { margin: .5rem 0 0; }
+  .notice summary { cursor: pointer; font-size: .9rem; }
+  .crumbs { font-size: .9rem; }
+  .crumbs button {
+    font: inherit; background: none; border: none; padding: 0 .15rem;
+    color: #0969da; cursor: pointer;
+  }
+  .crumbs button:hover { text-decoration: underline; }
+  .crumbs span { color: #57606a; }
+  .crumbs b { font-weight: 600; }
+  dl.defs {
+    display: grid; grid-template-columns: max-content 1fr; gap: .5rem .75rem;
+    margin: .5rem 0 0; font-size: .85rem; color: #57606a;
+  }
+  dl.defs dt { font-weight: 600; color: #24292f; }
+  dl.defs dd { margin: 0; }
+  .stats { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 1rem 0 0; }
+  .stats div { font-size: .85rem; color: #57606a; }
+  .stats b { display: block; font-size: 1.25rem; color: #24292f; font-weight: 600;
+             font-variant-numeric: tabular-nums; }
+  #error { color: #cf222e; font-weight: 600; }
+  footer { margin-top: 3rem; border-top: 1px solid #d0d7de; padding-top: 1rem;
+           color: #57606a; font-size: .9rem; }
+  footer li { margin-bottom: .35rem; }
+</style>
+</head>
+<body>
+
+<h1>Godot documentation traffic</h1>
+<p class="meta">
+  <a href="https://docs.godotengine.org/en/stable/">docs.godotengine.org</a>
+  · <span id="period">…</span>
+  · docs source <span id="commit">…</span>
+  · updated <span id="updated">…</span>
+  · <a href="#caveats">caveats</a>
+</p>
+<p class="framing">Which parts of the Godot manual carry the reading, and which
+cost more to maintain than their readership suggests. Built by joining page
+traffic against the <a href="https://github.com/godotengine/godot-docs">godot-docs</a>
+source tree, so page length and last-edit date sit next to the traffic rather
+than traffic standing alone. It is a map for people who maintain the docs — not a
+scoreboard, and not a list of pages to delete.</p>
+
+<div class="notice">
+  <strong>Visitor counts on this Plausible instance broke on 2025-10-01.</strong>
+  <p>Overnight, daily unique visitors fell roughly eighteenfold while pageviews
+  did not move at all. No change in real traffic makes that shape. Everything on
+  this page is therefore measured in <strong>pageviews</strong>, which are
+  unaffected; visitors, visits, bounce rate and session duration are not used
+  anywhere, and this version of Plausible offers no scroll depth or time-on-page
+  to fall back on. Page-quality signals here come from the docs source tree
+  instead.</p>
+  <details>
+    <summary>Show the evidence</summary>
+    <div class="chart-box short"><canvas id="chart-quality"></canvas></div>
+    <p class="caption">Daily site-wide pageviews and unique visitors, log scale.
+    The two series track each other for eight months and then separate on a
+    single day. Diagnosing the cause needs access to the server; it is not
+    visible through the stats API.</p>
+  </details>
+</div>
+
+<p id="error" hidden></p>
+
+<div class="stats" id="stats"></div>
+<p class="caption">The whole English <code>/en/stable/</code> manual over
+<span class="period-inline">…</span>. The charts below follow the section you
+select; these totals do not.</p>
+
+<div class="controls">
+  <span class="crumbs" id="crumbs"></span>
+  <label><input type="checkbox" id="classes-toggle"> include class reference</label>
+  <input type="search" id="filter" placeholder="filter pages…" aria-label="Filter pages">
+</div>
+
+<h2>Attention against footprint</h2>
+<div class="chart-box tall"><canvas id="chart-sections"></canvas></div>
+<p class="caption">For each part of the manual, the share of reading it receives
+against the share of pages it occupies. Click a bar to go a level deeper. Where
+the pages bar runs past the reading bar, that part is larger than its readership
+— which is a question worth asking, not an answer: reference material is
+<em>supposed</em> to be consulted rarely, and a section can be long because the
+subject is hard. The class reference is excluded by default because it is
+generated from the engine's own source and is not written or trimmed here.</p>
+
+<h2>Where pages sit
+  <span class="range-group" role="group" aria-label="Colour" id="scatter-mode">
+    <button data-mode="age" aria-pressed="true">by last edit</button>
+    <button data-mode="i18n" aria-pressed="false">by translation reads</button>
+  </span>
+</h2>
+<div class="chart-box tall"><canvas id="chart-scatter"></canvas></div>
+<p class="caption">Every page in the current section: how much it is read
+(horizontal) against how long it is (vertical), both on log scales, with the
+crosshairs at this section's medians rather than at invented thresholds. Pages
+low and to the right are read a lot and say little; pages high and to the left
+are long and seldom read — the ones worth <em>looking at</em>, since length is
+roughly what a page costs to keep correct. Colour is the last edit to the source
+file, or the reads its translations get, which is often where a page's real
+weight hides. Hover a point for the page; click to filter the table below to it.</p>
+
+<h2>The long tail</h2>
+<div class="chart-box"><canvas id="chart-tail"></canvas></div>
+<p class="caption" id="tail-caption"></p>
+
+<h2>Getting started, step by step</h2>
+<div class="chart-box tall"><canvas id="chart-funnel"></canvas></div>
+<p class="caption">The onboarding path in the order the docs present it, read
+from the table of contents so a restructure moves this chart instead of breaking
+it. Readers arrive from search at any point and leave whenever they have what
+they came for, so this is not a funnel with a single entrance — a step drawing
+more than the one before it means people entered there, not that readers
+multiplied. The shape between neighbouring steps is the useful part.</p>
+
+<h2>Pages <span id="table-scope"></span></h2>
+<div class="table-wrap">
+  <table id="pages-table">
+    <thead><tr>
+      <th>page</th><th>pageviews</th><th>vs prev. month</th>
+      <th>translation reads</th><th>words</th><th>last edit</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+<p class="caption">Sorted by reading volume; click a column to re-sort, and use
+the filter box above to narrow by path. <em>Translation reads</em> counts the
+same page across all non-English languages, so a page can be far more read than
+its English column suggests. <em>Words</em> is a rough count of the source file's
+prose, for comparing pages against each other, not a typographic measure.</p>
+
+<h2>Paths people still reach for</h2>
+<table id="stale-table">
+  <thead><tr><th>URL</th><th>pageviews</th></tr></thead>
+  <tbody></tbody>
+</table>
+<p class="caption" id="stale-caption"></p>
+
+<h2>What people download</h2>
+<div class="chart-box"><canvas id="chart-downloads"></canvas></div>
+<p class="caption">Clicks on download links, by platform, against the mix of
+operating systems people browse the site with. The two are not the same question
+— you might browse on a phone and build for desktop — and the gap between them
+is the interesting part. Downloads happen on a host this analytics setup never
+sees, so these outbound clicks are the closest available measure; a click is an
+intent to download, not a completed one.</p>
+
+<h2>Editions and versions</h2>
+<div class="chart-box"><canvas id="chart-versions"></canvas></div>
+<p class="caption">Download clicks by engine version, over the same period.</p>
+
+<footer id="caveats">
+  <strong>Caveats</strong>
+  <ul>
+    <li><strong>Visitor counts broke on 2025-10-01</strong> and are used nowhere on
+        this page. Pageviews are unaffected and are the only traffic metric here.
+        This also removes bounce rate and session duration; combined with a
+        Plausible version that offers neither scroll depth nor time on page, there
+        is no engagement signal available at all, so nothing here claims to
+        measure whether a page was <em>useful</em> — only how often it was
+        opened.</li>
+    <li>Analytics run on JavaScript. Bots, LLM crawlers, readers with scripts
+        blocked, and everyone reading the docs offline or in the editor's built-in
+        help are invisible. Counts are humans-with-JavaScript only, and the docs
+        are read in all of those other ways.</li>
+    <li>A URL counts as a page only if it resolves to a source file in
+        godot-docs at the commit shown above. That drops stale paths, Sphinx's
+        search page and scanner noise — about 2% of raw pageviews, listed in
+        "paths people still reach for" so the loss is visible rather than
+        silent.</li>
+    <li><strong>Low traffic is not low value.</strong> A page read a few hundred
+        times a month may be the one that unblocks a contributor, documents the
+        thing nobody else wrote down, or matters precisely because it is
+        rarely needed. Of the manual's pages, all but one were read at least once
+        this period — there is no dead weight to find here, only proportion. Every
+        chart on this page proposes candidates for a human to look at, and none of
+        them is a recommendation to delete anything.</li>
+    <li>Word count and last-edit date come from the docs source tree as it is
+        today, not as it was during the traffic window. A page rewritten last week
+        shows last week's date against a month of traffic.</li>
+    <li>The class reference is generated from the engine's source and synced in
+        bulk, so its git dates record sync commits rather than anyone writing.
+        It is excluded from the section chart by default for that reason.</li>
+    <li>Only English <code>/en/stable/</code> pages are shown in detail.
+        Translation reads are summed across all other languages per page; the
+        docs are also served for pinned versions (<code>/en/4.7/</code> and
+        older), which are not counted here.</li>
+    <li>Download figures count clicks on outbound links, not completed
+        downloads, and package managers, mirrors, Steam and distribution
+        repositories are invisible.</li>
+  </ul>
+  <p>Aggregated from Godot's self-hosted Plausible instance. Scripts, metric
+     definitions and raw data live in the repository; the page reads a single
+     generated <a href="data.js">data.js</a>.</p>
+</footer>
+
+<script src="vendor/chart.umd.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

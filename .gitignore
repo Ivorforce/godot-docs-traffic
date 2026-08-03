@@ -1,3 +1,10 @@
 __pycache__/
 .DS_Store
 .env
+.cache/
+
+# Analytics-derived artifacts stay out of git until publishing clearance
+# (see README). Regenerate with scripts/fetch.py + aggregate.py.
+data/raw/
+data/inventory.json
+docs/data.js

@@ -1,14 +1,12 @@
 # godot-visitors
 
-Traffic report for [godotengine.org](https://godotengine.org) and the Godot
-documentation, built from [Plausible](https://plausible.io) analytics and
-published as a static GitHub Pages site.
+Traffic report for the Godot documentation, built from
+[Plausible](https://plausible.io) analytics and rendered as a static page.
 
 Its main question: **which documentation pages deserve the most care, and which
 are candidates for trimming or merging?** Traffic alone cannot answer that, so
-the report joins Plausible's per-page metrics against the `godotengine/godot-docs`
-source tree — page length, last edit, and the pages that exist but receive no
-traffic at all, which analytics can never report on its own.
+the report joins per-page traffic against the `godotengine/godot-docs` source
+tree — page length, last edit, and which URLs correspond to a real page at all.
 
 Like [godot-area-throughput](https://github.com/Ivorforce/godot-area-throughput),
 this is decision support for maintainers, not a ranking. A rarely-read page can
@@ -17,33 +15,138 @@ review and nothing more.
 
 ## Status
 
-Scaffolding. No pipeline and no site yet.
+v1 works end to end: fetch, inventory, aggregate, and a page that opens straight
+from disk. Not published — see *Publishing clearance* below.
 
-Before either is written, two things need settling:
+The headline finding so far is about the data rather than the docs. The manual
+has **no dead pages**: of 1,591 English `/en/stable/` pages, all but one were
+read at least once in July 2026, and 512 hand-written pages carry a million
+pageviews. So "what can be trimmed" has no easy answer here, and the report is
+built to show proportion — 26 pages carry half the reading — rather than to
+produce a deletion list.
 
-- **A discrepancy in the source data.** A 31-day export (2026-07-04 – 2026-08-03)
-  reports 4,880,820 pageviews against 77,121 visitors — 63 pageviews per visitor
-  per month — while `visits × views_per_visit` from the same export implies about
-  1.2M. Everything Plausible derives from the User-Agent (device, browser, OS)
-  is self-consistent; everything it derives from the client IP is not. Country
-  data covers 6.3% of visitors and the city and region exports are empty. Since
-  Plausible builds both the country lookup and the daily visitor hash from the
-  client IP, a proxy that does not forward the real client IP would produce
-  exactly this: no geography, and many distinct people collapsing onto one
-  visitor. That would leave raw pageview counts intact while deflating
-  `visitors`, `visits`, and every session-derived metric.
+### Visitor counts break on 2025-10-01
 
-  Until this is confirmed or ruled out against the API, **pageviews** is the
-  primary metric here and session-derived numbers are treated as provisional.
+Godot's Plausible instance (`plausible.godot.foundation`, self-hosted) stopped
+counting unique visitors correctly on **2025-10-01**. Daily figures across the
+boundary:
 
-- **Publishing clearance.** This draws on Godot's own analytics rather than
-  public data. Nothing is published, and no analytics data is committed, before
-  the people who run the Plausible instance have agreed to it.
+| date | pageviews | visitors | pageviews / visitor |
+|---|---|---|---|
+| 2025-09-29 | 133,417 | 39,131 | 3.4 |
+| 2025-09-30 | 138,333 | 26,086 | 5.3 |
+| **2025-10-01** | 132,584 | **2,690** | **49.3** |
+| 2025-10-02 | 130,549 | 2,470 | 52.9 |
 
-## Setup
+Pageviews are flat across the break; visitors fall roughly eighteenfold
+overnight, part-way through 2025-09-30 in UTC terms. Every month from 2025-02
+to 2025-09 sits at 2.7–3.4 pageviews per visitor; every month since sits between
+57 and 167. No change in real traffic produces that shape — it is a tracking or
+configuration regression.
 
-No dependencies beyond Python 3 stdlib. Copy `.env.example` to `.env` and add a
-Plausible Stats API v2 key with read access to the site; only the fetch step
-needs it. Once raw data is committed, aggregation and the site run without a key.
+What it is *not*: the client IP is still reaching the instance. Country resolves
+for ~100% of visitors on both sides of the break, as do browser, OS and device.
+(An earlier reading of 6.3% country coverage came from a broken `countries.csv`
+in a dashboard CSV export, not from the data.) Diagnosing the cause needs
+server-side access to the instance — Plausible version, proxy configuration,
+`SECRET_KEY_BASE` — and is not visible through the Stats API.
+
+Consequences for this report:
+
+- **Pageviews are the primary metric** and are unaffected throughout.
+- **`visitors`, `visits`, `bounce_rate` and `visit_duration` are not usable after
+  2025-10-01** and are not charted for that period.
+- This version of Plausible offers no `scroll_depth` and no `time_on_page`, so
+  there is no per-pageview engagement metric to fall back on. Page "quality"
+  signals come from the docs source tree (length, staleness) instead.
+
+### Publishing clearance
+
+This draws on Godot's own analytics rather than public data. Nothing is
+published, and no analytics data is committed, before the people who run the
+Plausible instance have agreed to it. That conversation is also the moment to
+raise the 2025-10-01 regression, which affects every visitor number on the
+dashboard, not just this report.
+
+Until then, `data/raw/`, `data/inventory.json` and `docs/data.js` are
+**gitignored**: the repository holds the code that produces the report, not the
+report's data. Running the pipeline yourself needs an API key. Clearing this is
+one `.gitignore` change plus a first data commit — no history rewrite, because
+nothing sensitive ever entered history.
+
+## How it works
+
+- `scripts/plausible.py` — Stats API v2 client. Godot self-hosts at
+  `plausible.godot.foundation`, and both `godotengine.org` and
+  `docs.godotengine.org` report to one Plausible site with
+  `data-domain="godotengine.org"`, so they share a path namespace and are split
+  with an `event:hostname` filter. `Client.capabilities()` re-probes which
+  metrics and dimensions exist, so a server upgrade that adds `scroll_depth`
+  gets noticed rather than silently changing results.
+- `scripts/fetch.py` — writes `data/raw/`, one byte-stable ndjson file per kind
+  and month. The docs site serves ~87k distinct URLs a month across 15 languages
+  and a dozen versions; keeping that per-page for every month would be ~85 MB of
+  mostly noise. So per-page detail is English-only, and other languages are
+  rolled up per path — enough to show that a page carries weight in translation
+  without shipping fifteen parallel tables. Only the newest month pages the full
+  hostname (nine requests); older months fetch the English subset in one.
+- `scripts/inventory.py` — clones `godot-docs` at the `stable` branch (which is
+  what Read the Docs serves at `/en/stable/`, not `master`) and records each
+  page's word count, last-edit timestamp and toctree position. Blob-filtered and
+  sparse, because the repository is ~450 MB and almost all of it is screenshots;
+  history is kept in full, since last-edit dates are the entire point.
+- `scripts/aggregate.py` — joins the two into `docs/data.js`, a single
+  `window.DATA = {…}` assignment.
+- `docs/` — the page. Hand-written `index.html`, vanilla `app.js`, and a
+  vendored [Chart.js](https://github.com/chartjs/Chart.js) 4.4.9 (MIT).
+
+`docs/data.js` is a `<script src>` rather than a fetched JSON file specifically
+so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
+`file://`; a classic script tag is not.
+
+## Metric definitions
+
+- **pageviews** — the only traffic metric used anywhere. Visitors, visits, bounce
+  rate and session duration are excluded because they broke on 2025-10-01.
+- **page** — a URL that resolves to a `.rst` file in godot-docs at the recorded
+  commit. Directory URLs and `index.html` are folded onto one canonical form, or
+  a page's traffic would split across two rows and each would look half as read.
+  URLs with no source file (~2% of pageviews: moved paths, Sphinx's search page,
+  scanner noise) are excluded from every figure and listed separately, so the
+  exclusion is visible rather than silent.
+- **translation reads** — pageviews for the same path summed across all
+  non-English languages and all doc versions, so a page's weight in translation
+  shows up next to its English figure.
+- **words** — a rough count of prose in the source file: directive bodies and
+  section underlines dropped, roles unwrapped. It is for comparing pages against
+  each other, not a typographic measurement.
+- **last edit** — the most recent commit touching the source file, from a single
+  `git log` walk. For the class reference these are bulk sync commits, not
+  authorship, which is one reason it is excluded by default.
+
+## Runbook
+
+Python 3 stdlib and `git`; no other dependencies. Copy `.env.example` to `.env`
+and add a Plausible API key with read access to the site — only `fetch.py` uses
+it.
+
+```sh
+python3 scripts/fetch.py probe          # what this instance supports
+python3 scripts/fetch.py backfill       # ~13 months, about a minute
+python3 scripts/inventory.py            # clones godot-docs, ~2 s after first run
+python3 scripts/aggregate.py            # writes docs/data.js
+open docs/index.html                    # no server needed
+```
+
+Afterwards, `python3 scripts/fetch.py incremental` fetches only months not
+already stored, always refreshing the newest.
+
+Tests: `python3 -m unittest discover tests`. They cover URL canonicalisation,
+download-link parsing, the rst parsers, and the invariants the page depends on —
+including a check that no visitor-derived number leaks into page data, and one
+that the 2025-10-01 collapse is still visible in the stored data, so the notice
+on the page cannot quietly become a lie. Where the CSV export is present they
+also cross-check page totals against it, since it was produced independently of
+the API path.
 
 Licensed [MIT](LICENSE).
