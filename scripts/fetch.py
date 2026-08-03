@@ -36,6 +36,18 @@ EN_PREFIX = "/en/"
 # is dropped at aggregation time by the inventory join.
 DOCS_PATH = re.compile(r"^/([a-z]{2}(?:-[a-z]{2})?)/([^/]+)/(.*)$")
 
+# Which version slug means "the current docs" — asked by exclusion, because the
+# languages do not agree on the answer. English has `stable` (the released
+# branch) and `latest` (master), and both are English-only: `/xx/latest/` drew
+# 769 views in one language and single digits of scanner noise in the rest
+# across 2026-07. The translations have neither. The edition their own language
+# switcher points at is `4.x`, which carried 87% of all translated reading that
+# month against 1,552 views for `stable`. What every language does share is that
+# a *pinned release* is spelled as a number — 4.5, 3.6 — so that is what gets
+# excluded, and the rule survives the rename to 5.x that a hardcoded slug would
+# not.
+PINNED_VERSION = re.compile(r"^\d[\d.]*$")
+
 
 def fetch_site_daily(client, first, last):
     """Daily site totals per hostname.
@@ -86,7 +98,14 @@ def fetch_docs_month(client, month, full):
     if seen:
         print("", file=sys.stderr)
 
-    english, i18n = [], collections.Counter()
+    english = []
+    # Two counters per path, not one. Collapsing every version onto the page it
+    # mirrors is right for the path and wrong for the total: the English figure
+    # a translation count gets compared against is /en/stable/ alone, so a
+    # numerator that also carried /ja/4.5/ and /ja/3.6/ overstated every
+    # translation share. `c` is the like-for-like number the report divides by;
+    # `pv` keeps every version, which is worth knowing on its own.
+    i18n_all, i18n_current = collections.Counter(), collections.Counter()
     for row in rows:
         path, pv = row["dimensions"][0], row["metrics"][0]
         if path.startswith(EN_PREFIX):
@@ -96,19 +115,21 @@ def fetch_docs_month(client, month, full):
             continue
         m = DOCS_PATH.match(path)
         if m and m.group(1) != "en":
-            # Key on the version-stripped remainder so a page's translations
-            # collapse onto the English page they mirror, whatever version of
-            # the docs the reader landed on.
-            i18n[m.group(3)] += pv
+            i18n_all[m.group(3)] += pv
+            if not PINNED_VERSION.match(m.group(2)):
+                i18n_current[m.group(3)] += pv
 
     store.write("docs-en", english, month=month)
     print(f"  docs-en {month}: {len(english):,} pages, "
           f"{sum(r['pv'] for r in english):,} pageviews")
     if full:
         store.write("docs-i18n",
-                    [{"p": p, "pv": pv} for p, pv in i18n.items()], month=month)
-        print(f"  docs-i18n {month}: {len(i18n):,} paths, "
-              f"{sum(i18n.values()):,} pageviews")
+                    [{"p": p, "pv": pv, "c": i18n_current[p]}
+                     for p, pv in i18n_all.items()], month=month)
+        current = sum(i18n_current.values())
+        print(f"  docs-i18n {month}: {len(i18n_all):,} paths, "
+              f"{current:,} pageviews on the current docs, "
+              f"{sum(i18n_all.values()) - current:,} on pinned releases")
 
 
 def fetch_www_month(client, month):

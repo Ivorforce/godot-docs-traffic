@@ -110,22 +110,32 @@ def load_docs_month(month):
     return out
 
 
-def load_i18n(month):
+def load_i18n(month, field="c"):
     """{path below /<lang>/<version>/: pageviews} summed over all non-English
     languages, so a page can show how much it is read in translation.
+
+    `field` picks the edition: "c" is the current docs in each language, the
+    only figure comparable with the English side, which is `/en/stable/` alone.
+    "pv" is every version, which is not a translation share but is a real number
+    about how translated reading is spread.
 
     Keys must land on the same form `build_docs` derives from a canonical
     English URL, which is `index.html` for the manual's landing page. A reader
     at `/ja/stable/` leaves an *empty* remainder, not one ending in "/", so the
     directory rule alone misses it — and that one path is the largest single key
-    in the file (34,842 views in 2026-07, 4% of all translated reading).
+    in the file (4% of all translated reading).
     """
     out = collections.Counter()
     for row in store.read("docs-i18n", month):
+        if field not in row:
+            sys.exit(f"data/raw/docs-i18n-{month}.ndjson predates the per-version "
+                     f"split and cannot be corrected after the fact — every "
+                     f"version is already summed into one number. Re-run "
+                     f"`python3 scripts/fetch.py incremental`.")
         rest = row["p"]
         if not rest or rest.endswith("/"):
             rest += "index.html"
-        out[rest] += row["pv"]
+        out[rest] += row[field]
     return out
 
 
@@ -283,6 +293,11 @@ def build_docs(months, inventory):
         "windowStart": window_start,
         "matchedViews": sum(matched.values()),
         "i18nViews": sum(i18n.values()),
+        # Translated reading outside /xx/stable/: excluded from every share on
+        # the page, since the English side it is compared against is stable
+        # only. Emitted so the exclusion is a number on the page rather than a
+        # sentence about a number nobody can see.
+        "i18nOtherVersions": sum(load_i18n(newest, "pv").values()) - sum(i18n.values()),
     }
 
 

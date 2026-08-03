@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import aggregate  # noqa: E402
+import fetch  # noqa: E402
 import inventory  # noqa: E402
 import plausible  # noqa: E402
 
@@ -51,30 +52,63 @@ class TestI18nKeys(unittest.TestCase):
     """Translation paths must land on the key the English side produces.
 
     `build_docs` keys the manual's landing page as "index.html". The rollup
-    stores it as the empty remainder of `/ja/stable/`, which is neither a
-    directory nor a file name, and is the single largest key in the file.
+    stores it as the empty remainder of `/ja/4.x/`, which is neither a directory
+    nor a file name, and is the single largest key in the file.
     """
 
-    def fold(self, rows):
+    def fold(self, rows, field="c"):
         original = aggregate.store.read
         aggregate.store.read = lambda kind, month: rows
         try:
-            return aggregate.load_i18n("2026-07")
+            return aggregate.load_i18n("2026-07", field)
         finally:
             aggregate.store.read = original
 
     def test_landing_page_folds_onto_index(self):
-        out = self.fold([{"p": "", "pv": 30}, {"p": "index.html", "pv": 5}])
+        out = self.fold([{"p": "", "pv": 40, "c": 30},
+                         {"p": "index.html", "pv": 5, "c": 5}])
         self.assertEqual(out, {"index.html": 35})
 
     def test_directory_folds_onto_index(self):
-        out = self.fold([{"p": "tutorials/2d/", "pv": 7},
-                         {"p": "tutorials/2d/index.html", "pv": 3}])
+        out = self.fold([{"p": "tutorials/2d/", "pv": 7, "c": 7},
+                         {"p": "tutorials/2d/index.html", "pv": 3, "c": 3}])
         self.assertEqual(out, {"tutorials/2d/index.html": 10})
 
     def test_ordinary_page_is_untouched(self):
-        out = self.fold([{"p": "about/faq.html", "pv": 9}])
+        out = self.fold([{"p": "about/faq.html", "pv": 9, "c": 9}])
         self.assertEqual(out, {"about/faq.html": 9})
+
+    def test_shares_count_the_current_docs_not_every_version(self):
+        """The default field is the one comparable with /en/stable/."""
+        rows = [{"p": "about/faq.html", "pv": 100, "c": 60}]
+        self.assertEqual(self.fold(rows), {"about/faq.html": 60})
+        self.assertEqual(self.fold(rows, "pv"), {"about/faq.html": 100})
+
+    def test_a_rollup_without_the_split_stops_the_run(self):
+        """Old files sum every version into one number and cannot be repaired
+        after the fact, so they must fail loudly rather than read as a share."""
+        with self.assertRaises(SystemExit):
+            self.fold([{"p": "about/faq.html", "pv": 9}])
+
+
+class TestCurrentEdition(unittest.TestCase):
+    """Which version slug counts as "the current docs", asked by exclusion.
+
+    English publishes `stable` and `latest`; the translations publish neither,
+    and their current edition is `4.x`. Only the pinned releases look alike
+    across languages — they are spelled as numbers.
+    """
+
+    def pinned(self, version):
+        return bool(fetch.PINNED_VERSION.match(version))
+
+    def test_rolling_slugs_are_the_current_docs(self):
+        for version in ("stable", "latest", "4.x", "5.x"):
+            self.assertFalse(self.pinned(version), version)
+
+    def test_pinned_releases_are_excluded(self):
+        for version in ("4.7", "4.5", "3.6", "3", "4.0.1"):
+            self.assertTrue(self.pinned(version), version)
 
 
 class TestDownloadParsing(unittest.TestCase):

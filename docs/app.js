@@ -38,7 +38,8 @@ const COLORS = {
    change is stated against the docs' own change, since a month when everything
    rose 6% says nothing about any single page; translation reading is stated as
    a share of the page's English figure, since the raw count tracks English
-   reading closely (log-log r = 0.92) and would just repeat the x axis. */
+   reading closely (log-log r = 0.92) and would just repeat the x axis. Both
+   sides of that share are the current docs only — see the caveats. */
 const TREND_BINS = [
   { max: -0.20, label: "falling against the docs (−20% or more)", color: "#7d4e00" },
   { max: -0.05, label: "below (−5 to −20%)", color: "#d4a72c" },
@@ -52,15 +53,15 @@ const TREND_BINS = [
 const TREND_UNKNOWN = { label: "no figure for the month before", color: "#d0d7de",
                         optional: true };
 
-// Thresholds sit either side of the manual's median share (0.66), so the two
+// Thresholds sit either side of the manual's median share (0.56), so the two
 // middle bins split the ordinary range rather than pooling it. The first bin is
 // the one to act on: a page nobody reads in translation is usually one the
 // translations have not reached yet.
 const I18N_BINS = [
   { max: 0.05, label: "no translated reading", color: "#d4a72c" },
-  { max: 0.45, label: "under half the English figure", color: "#86b6ef" },
-  { max: 0.85, label: "the usual share (about 0.6×)", color: "#2a78d6" },
-  { max: Infinity, label: "as read in translation as in English", color: "#0d366b" },
+  { max: 0.40, label: "under 0.4× the English figure", color: "#86b6ef" },
+  { max: 0.75, label: "the usual share (about 0.55×)", color: "#2a78d6" },
+  { max: Infinity, label: "0.75× or more", color: "#0d366b" },
 ];
 
 // ---- state <-> hash ---------------------------------------------------------
@@ -321,7 +322,7 @@ function buildScatter() {
           label(item) {
             const r = item.raw;
             const base = charts.scatter.$base || 0;
-            return [r.label,
+            return [r.short,
                     `${num(r.pv)} pageviews · ${num(r.words)} words`,
                     r.delta === null
                       ? "no figure for the month before"
@@ -427,7 +428,8 @@ function renderStats() {
     ["pages", num(rows.length), state.classes ? "including class reference" : "hand-written"],
     ["carry half the reading", num(half), `${pct(half, rows.length)} of pages`],
     ["under 100 views", num(quiet), `${pct(quiet, rows.length)} of pages`],
-    ["read in translation", num(DOCS.i18nViews), "all other languages"],
+    ["read in translation", num(DOCS.i18nViews),
+     `all other languages · ${num(DOCS.i18nOtherVersions)} more on pinned releases`],
   ];
   const box = document.getElementById("stats");
   box.replaceChildren(...stats.map(([label, value, sub]) => {
@@ -511,7 +513,11 @@ function renderScatter() {
       delta: row[PREV] ? (row[PV] - row[PREV]) / row[PREV] : null,
       excess,
       age: ageLabel(row[EDITED]),
+      // The full URL is what the table filters on, so it is kept; the tooltip
+      // shows the part that differs between points, since every page here is
+      // under the same prefix and repeating it costs a line of width.
       label: DOCS.paths[row[PATH]],
+      short: rel(row) || "(landing page)",
     });
   }
   charts.scatter.$base = base;

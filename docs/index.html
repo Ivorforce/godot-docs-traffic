@@ -156,7 +156,7 @@ a few hundred times a month swing by 15% on nothing at all, so read the left of
 the chart loosely. <em>Translation share</em> is translated reading as a multiple
 of the page's own English figure — the raw count is not shown, because it tracks
 English reading so closely that it would only redraw the horizontal axis. Around
-0.6× is ordinary here. Near zero usually means the translations have not reached
+0.55× is ordinary here. Near zero usually means the translations have not reached
 the page yet rather than that nobody wants it, and a page near or above 1× is one
 where an English rewrite sets fifteen translations back.</p>
 <p class="caption" id="concentration"></p>
@@ -262,9 +262,15 @@ intent to download, not a completed one.</p>
         bulk, so its git dates record sync commits rather than anyone writing.
         It is excluded from the section chart by default for that reason.</li>
     <li>Only English <code>/en/stable/</code> pages are shown in detail.
-        Translation reads are summed across all other languages per page; the
-        docs are also served for pinned versions (<code>/en/4.7/</code> and
-        older), which are not counted here.</li>
+        Translation reads are summed across all other languages per page, and
+        both sides count the current docs only, so the share compares like with
+        like. That takes some care, because the languages do not name their
+        versions alike: English has <code>stable</code> and <code>latest</code>,
+        both English-only, while the translations have neither and the edition
+        their language switcher points at is <code>4.x</code>. Pinned releases
+        (<code>/en/4.7/</code>, <code>/ja/4.5/</code> and older) are excluded on
+        both sides — 130,039 pageviews of translated reading, a sixth of it,
+        named in the tile above and in no share on this page.</li>
     <li>Download figures count clicks on outbound links, not completed
         downloads, and package managers, mirrors, Steam and distribution
         repositories are invisible.</li>

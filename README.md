@@ -97,7 +97,9 @@ nothing sensitive ever entered history.
   and a dozen versions; keeping that per-page for every month would be ~85 MB of
   mostly noise. So per-page detail is English-only, and other languages are
   rolled up per path — enough to show that a page carries weight in translation
-  without shipping fifteen parallel tables. Only the newest month pages the full
+  without shipping fifteen parallel tables. Two counts per path, not one: the
+  current docs and every version, because a share needs the first and the
+  breadth of translated reading needs the second. Only the newest month pages the full
   hostname (nine requests); older months fetch the English subset in one.
 - `scripts/inventory.py` — clones `godot-docs` at the `stable` branch (which is
   what Read the Docs serves at `/en/stable/`, not `master`) and records each
@@ -154,25 +156,40 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   one, so absence from the CSV means genuinely unforwarded rather than possibly
   handled elsewhere.
 - **translation reads** — pageviews for the same path summed across all
-  non-English languages and all doc versions, so a page's weight in translation
-  shows up next to its English figure. 39% of all docs reading is non-English.
+  non-English languages, so a page's weight in translation shows up next to its
+  English figure. 34% of reading on the current docs is non-English.
 
   The table shows the count; the scatter colours by the **share** — translated
   reading as a multiple of the same page's English figure — because the raw
   count correlates with English reading at r = 0.92 on log-log and as a colour
-  would only redraw the horizontal axis. The share does vary, and structurally:
-  `getting_started/introduction` runs at 0.75× and `tutorials/editor` at 0.83×,
-  against 0.45× for `tutorials/scripting` and 0.30× for `tutorials/inputs`.
-  People start in their own language and move to English as they go deeper. Two
-  readings are actionable: a share near zero flags a page the translations have
-  not reached (the whole of `community/asset_store/` sits at 0.00–0.03×, being
-  new), and a high share flags a page where an English rewrite invalidates work
-  in fifteen languages.
+  would only redraw the horizontal axis. The share varies structurally:
+  `engine_details/development` runs at 0.78× and `getting_started/introduction`
+  at 0.72×, against 0.35× for `tutorials/networking` and 0.26× for
+  `tutorials/inputs`. People start in their own language and move to English as
+  they go deeper. Two readings are actionable: a share near zero flags a page
+  the translations have not reached (the whole of `community/asset_store/` sits
+  at 0.00–0.13×, being new), and a high share flags a page where an English
+  rewrite invalidates work in fifteen languages.
 
-  Translation paths are keyed on the remainder after `/<lang>/<version>/`, which
-  is *empty* for the manual's landing page — the largest single key in the file
-  at 34,842 views. Folding it onto `index.html` is what `load_i18n` does beyond
-  the obvious directory rule, and `TestI18nKeys` pins it.
+  Two joins have to be right for any of that to mean anything.
+
+  *Which version.* The English side is `/en/stable/` alone, so the translated
+  side must be the current docs alone too, or the share is inflated by whatever
+  reading sits on pinned releases. The languages make that awkward: English has
+  `stable` and `latest` and the translations have neither — their current
+  edition is `4.x`, carrying 87% of translated reading against 1,552 views for
+  `stable`, and `/xx/latest/` is scanner noise outside one language. So
+  `fetch.py` decides by exclusion — a pinned release is spelled as a number —
+  and stores two counts per path: `c` for the current docs, which every share
+  divides by, and `pv` for every version. It matters by a sixth: 130,039 of
+  851,950 translated pageviews are on pinned releases.
+
+  *Which path.* Translation paths are keyed on the remainder after
+  `/<lang>/<version>/`, which is *empty* for the manual's landing page — the
+  largest single key in the file. Folding it onto `index.html` is what
+  `load_i18n` does beyond the obvious directory rule, and `TestI18nKeys` pins
+  it. 97% of translated pageviews join to a page; the rest is the same residue
+  the English side has, `search.html` and paths that only ever existed in 3.x.
 - **words** — approximate prose words in the source file. A token counts if it
   contains a letter (`str.isalpha()`, so non-Latin text counts too); table
   pipes, bullet markers, rule lines and bare numbers do not. Code is excluded
