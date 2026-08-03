@@ -129,6 +129,16 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
 - **words** — a rough count of prose in the source file: directive bodies and
   section underlines dropped, roles unwrapped. It is for comparing pages against
   each other, not a typographic measurement.
+- **footprint** — how much of the manual a section occupies, measured in words by
+  default. Words approximate what a section costs to keep correct, since review,
+  updating and translation all scale with prose rather than with file count.
+  Page count is offered as a toggle because it answers a different question —
+  how many separate documents a reader moves between — and the two genuinely
+  disagree. Inside `tutorials/`, `shaders/` is level with its readership by page
+  count (6.4% of pages against 6.3% of reading) but well above it by words
+  (9.1%), while `navigation/` is the reverse: 4.8% of pages, 2.7% of words, being
+  many short documents rather than a lot of prose. Pages in the manual range from
+  under 150 words to over 2,000, so the choice is not cosmetic.
 - **last edit** — the most recent commit touching the source file, from a single
   `git log` walk. For the class reference these are bulk sync commits, not
   authorship, which is one reason it is excluded by default.

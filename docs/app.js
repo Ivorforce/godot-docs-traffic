@@ -17,7 +17,8 @@ const PREFIX = DOCS.prefix;
 // Row layout emitted by scripts/aggregate.py.
 const PATH = 0, PV = 1, PREV = 2, WORDS = 3, EDITED = 4, I18N = 5, GENERATED = 6;
 
-const state = { section: "", classes: false, filter: "", scatter: "age" };
+const state = { section: "", classes: false, filter: "", scatter: "age",
+                footprint: "words" };
 const charts = {};
 
 const COLORS = {
@@ -54,6 +55,7 @@ function readHash() {
   if (p.has("c")) state.classes = p.get("c") === "1";
   if (p.has("q")) state.filter = p.get("q");
   if (p.has("m")) state.scatter = p.get("m") === "i18n" ? "i18n" : "age";
+  if (p.has("f")) state.footprint = p.get("f") === "pages" ? "pages" : "words";
 }
 
 function writeHash() {
@@ -62,6 +64,7 @@ function writeHash() {
   if (state.classes) p.set("c", "1");
   if (state.filter) p.set("q", state.filter);
   if (state.scatter !== "age") p.set("m", state.scatter);
+  if (state.footprint !== "words") p.set("f", state.footprint);
   const q = p.toString();
   history.replaceState(null, "", q ? "#" + q : location.pathname);
 }
@@ -108,9 +111,10 @@ function childrenOf(section) {
     if (!rest) continue;
     const cut = rest.indexOf("/");
     const key = cut === -1 ? rest : rest.slice(0, cut);
-    const entry = out.get(key) || { key, pv: 0, pages: 0, dir: cut !== -1 };
+    const entry = out.get(key) || { key, pv: 0, pages: 0, words: 0, dir: cut !== -1 };
     entry.pv += row[PV];
     entry.pages += 1;
+    entry.words += row[WORDS];
     entry.dir = entry.dir || cut !== -1;
     out.set(key, entry);
   }
@@ -204,7 +208,7 @@ function buildSections() {
     type: "bar",
     data: { labels: [], datasets: [
       { label: "share of reading", backgroundColor: COLORS.reading, data: [] },
-      { label: "share of pages", backgroundColor: COLORS.pages, data: [] },
+      { label: "share of words", backgroundColor: COLORS.pages, data: [] },
     ]},
     options: Object.assign({}, BASE, {
       indexAxis: "y",
@@ -215,9 +219,13 @@ function buildSections() {
       },
       plugins: {
         legend: { labels: { boxWidth: 12, font: { size: 11 } } },
+        // All three magnitudes live here, so switching the second bar never
+        // hides a number — it only changes which one is drawn to scale.
         tooltip: { callbacks: { afterBody(items) {
           const c = charts.sections.$children[items[0].dataIndex];
-          return `${num(c.pv)} pageviews · ${num(c.pages)} page${c.pages === 1 ? "" : "s"}` +
+          return `${num(c.pv)} pageviews\n${num(c.words)} words in ` +
+                 `${num(c.pages)} page${c.pages === 1 ? "" : "s"}` +
+                 (c.pages ? ` (${num(c.words / c.pages)} each)` : "") +
                  (c.dir ? "\nclick to open" : "");
         } } },
       },
@@ -433,13 +441,18 @@ function renderSections() {
   const children = childrenOf(state.section);
   const rows = sectionRows();
   const totalPv = rows.reduce((a, r) => a + r[PV], 0) || 1;
-  const totalPages = rows.length || 1;
+  const byWords = state.footprint === "words";
+  const size = (c) => (byWords ? c.words : c.pages);
+  const totalSize = rows.reduce((a, r) => a + (byWords ? r[WORDS] : 1), 0) || 1;
+
   charts.sections.$children = children;
   charts.sections.data.labels = children.map((c) => c.key + (c.dir ? "/" : ""));
   charts.sections.data.datasets[0].data =
     children.map((c) => Math.round((1000 * c.pv) / totalPv) / 10);
   charts.sections.data.datasets[1].data =
-    children.map((c) => Math.round((1000 * c.pages) / totalPages) / 10);
+    children.map((c) => Math.round((1000 * size(c)) / totalSize) / 10);
+  charts.sections.data.datasets[1].label =
+    byWords ? "share of words" : "share of pages";
   charts.sections.update();
 }
 
@@ -649,6 +662,13 @@ function bindControls() {
     });
   }
 
+  for (const btn of document.querySelectorAll("#footprint-mode button")) {
+    btn.addEventListener("click", () => {
+      state.footprint = btn.dataset.footprint;
+      render();
+    });
+  }
+
   document.querySelectorAll("#pages-table th").forEach((th, i) => {
     th.addEventListener("click", () => {
       if (sortState.col === i) sortState.asc = !sortState.asc;
@@ -664,6 +684,10 @@ function syncControls() {
   if (filter.value !== state.filter) filter.value = state.filter;
   for (const btn of document.querySelectorAll("#scatter-mode button")) {
     btn.setAttribute("aria-pressed", String(btn.dataset.mode === state.scatter));
+  }
+  for (const btn of document.querySelectorAll("#footprint-mode button")) {
+    btn.setAttribute("aria-pressed",
+                     String(btn.dataset.footprint === state.footprint));
   }
 }
 

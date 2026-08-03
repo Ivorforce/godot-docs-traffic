@@ -105,15 +105,28 @@ select; these totals do not.</p>
   <input type="search" id="filter" placeholder="filter pages…" aria-label="Filter pages">
 </div>
 
-<h2>Attention against footprint</h2>
+<h2>Attention against footprint
+  <span class="range-group" role="group" aria-label="Footprint" id="footprint-mode">
+    <button data-footprint="words" aria-pressed="true">words</button>
+    <button data-footprint="pages" aria-pressed="false">pages</button>
+  </span>
+</h2>
 <div class="chart-box tall"><canvas id="chart-sections"></canvas></div>
 <p class="caption">For each part of the manual, the share of reading it receives
-against the share of pages it occupies. Click a bar to go a level deeper. Where
-the pages bar runs past the reading bar, that part is larger than its readership
-— which is a question worth asking, not an answer: reference material is
-<em>supposed</em> to be consulted rarely, and a section can be long because the
-subject is hard. The class reference is excluded by default because it is
-generated from the engine's own source and is not written or trimmed here.</p>
+against the share of the manual it occupies. Click a bar to go a level deeper;
+hover for the underlying counts. Where the grey bar runs past the blue one, that
+part is larger than its readership — a question worth asking, not an answer:
+reference material is <em>supposed</em> to be consulted rarely, and a section can
+be long because the subject is hard.</p>
+<p class="caption">Footprint is measured in <strong>words</strong> by default,
+because that is roughly what a section costs to keep correct — review, updating
+and translation all scale with prose, not with file count. Page count answers a
+different question, about how many separate documents a reader has to move
+between, and the two disagree: a section of many short pages looks large by page
+count and modest by words, and a section of a few long ones the other way round.
+Across the manual, pages range from under 150 words to over 2,000. The class
+reference is excluded by default from both, being generated from the engine's own
+source rather than written or trimmed here.</p>
 
 <h2>Where pages sit
   <span class="range-group" role="group" aria-label="Colour" id="scatter-mode">
