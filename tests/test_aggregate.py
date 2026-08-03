@@ -88,25 +88,52 @@ class TestInventoryParsing(unittest.TestCase):
         self.assertEqual(inventory.url_for("tutorials/2d/index.rst"),
                          "/en/stable/tutorials/2d/index.html")
 
-    def test_word_count_skips_directives_and_underlines(self):
+    def test_word_count_skips_code_directives_and_underlines(self):
         text = (
             "Page title\n"
             "==========\n"
             "\n"
             "One two three.\n"
             "\n"
-            ".. note::\n"
+            ".. code-block:: gdscript\n"
             "\n"
-            "    ignored words inside the directive body\n"
+            "    var ignored = 1\n"
             "\n"
             "Four five.\n"
         )
         # "Page title" (2) + "One two three." (3) + "Four five." (2)
         self.assertEqual(inventory.word_count(text), 7)
 
+    def test_word_count_keeps_admonition_prose(self):
+        """Notes and warnings render as callouts but are ordinary prose, and
+        godot-docs uses them for about a tenth of the manual."""
+        text = "Before.\n\n.. note::\n\n    Real prose in a note.\n\nAfter.\n"
+        self.assertEqual(inventory.word_count(text), 7)
+
+    def test_word_count_skips_code_nested_in_an_admonition(self):
+        text = (".. note::\n\n    Prose line.\n\n"
+                "    .. code-block:: gdscript\n\n        var y = 2\n")
+        self.assertEqual(inventory.word_count(text), 2)
+
+    def test_word_count_skips_literal_blocks(self):
+        """A paragraph ending in '::' introduces indented code, which is not a
+        directive and so was previously counted as prose."""
+        self.assertEqual(
+            inventory.word_count("Run this::\n\n    godot --headless\n\nDone.\n"), 3)
+
+    def test_word_count_ignores_table_and_list_markup(self):
+        table = "+------+------+\n| en   | Eng  |\n+------+------+\n"
+        self.assertEqual(inventory.word_count(table), 2)
+        self.assertEqual(inventory.word_count("- one\n- two\n"), 2)
+
     def test_word_count_unwraps_roles(self):
         # "See the manual now." — the role markup contributes no words of its own.
         self.assertEqual(inventory.word_count("See :ref:`the manual` now.\n"), 4)
+
+    def test_word_count_counts_non_latin_words(self):
+        """The rule is 'token contains a letter', via str.isalpha(), so quoted
+        non-Latin text in the i18n pages is prose rather than punctuation."""
+        self.assertEqual(inventory.word_count("Sample: こんにちは and θ here.\n"), 5)
 
     def test_toctree_entries_resolve_relative(self):
         text = (

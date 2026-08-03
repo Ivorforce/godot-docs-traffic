@@ -79,33 +79,92 @@ def url_for(rel):
     return URL_PREFIX + rel[: -len(".rst")] + ".html"
 
 
-# Directive and role markup that would otherwise be counted as prose. Crude by
-# design: the word count is a size signal for comparing pages, not a
-# typographic measurement, and it only has to be consistent across pages.
-DIRECTIVE = re.compile(r"^\s*\.\.\s")
+# A directive line, capturing its name when it has one. Hyperlink targets and
+# comments (".. _label:", ".. just a note") match with no name.
+DIRECTIVE = re.compile(r"^\s*\.\.[ \t]+(?:([A-Za-z0-9_-]+)::)?")
 ROLE = re.compile(r":[a-z:]+:`([^`]*)`")
 LITERAL = re.compile(r"``([^`]*)``")
 
+# Directive bodies are markup and are skipped — except these, which hold
+# ordinary prose that merely renders as a callout. godot-docs leans on them
+# heavily: skipping them discarded ~54k words, a tenth of the manual.
+PROSE_DIRECTIVES = frozenset({
+    "note", "warning", "tip", "important", "seealso", "caution", "danger",
+    "attention", "admonition", "hint", "error",
+})
+
+# Lines made only of these are section underlines or table rules.
+RULE_CHARS = frozenset("=-~^\"'`*+#_|:.<> \t")
+
+
+def is_word(token):
+    """Does this whitespace-separated token carry a word?
+
+    Counting raw tokens made table pipes, bullet markers and bare numbers into
+    "words": 28,623 of them across the manual, and up to 56% of an individual
+    page — a locale table read as 2.3x its real length. Requiring a letter
+    rejects essentially only markup (the rejected set is 97% `|`, `-`, `=`, `*`,
+    `#` and rule lines) while keeping domain words like Node2D and res://.
+    `str.isalpha()` rather than a Latin range, so quoted non-Latin text in the
+    i18n pages counts too.
+    """
+    return any(c.isalpha() for c in token)
+
 
 def word_count(text):
+    """Approximate prose words in one .rst source file.
+
+    A size signal for comparing pages against each other, not a typographic
+    measurement. Skips directive bodies (code blocks, tables, figures), literal
+    blocks opened by a trailing "::", section underlines and rule lines; counts
+    admonition prose; unwraps roles and inline literals.
+    """
     words = 0
-    in_block = False
-    for line in text.splitlines():
-        if DIRECTIVE.match(line):
-            in_block = True
-            continue
-        if in_block:
-            # Directive bodies stay indented; the first flush line ends them.
-            if line.strip() and not line.startswith((" ", "\t")):
-                in_block = False
-            else:
+    skip_indent = None    # inside a skipped directive body or literal block
+    literal_after = None  # indent of a paragraph that just opened a literal block
+
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        indent = len(raw) - len(raw.lstrip())
+
+        if skip_indent is not None:
+            # Bodies are indented past their introducing line; blank lines
+            # inside them do not end them.
+            if not stripped or indent > skip_indent:
                 continue
-        line = ROLE.sub(r"\1", line)
-        line = LITERAL.sub(r"\1", line)
-        stripped = line.strip()
-        if not stripped or set(stripped) <= set("=-~^\"'`*+#_"):
-            continue  # section underlines and rules
-        words += len(stripped.split())
+            skip_indent = None
+
+        if literal_after is not None:
+            if not stripped:
+                continue
+            if indent > literal_after:
+                skip_indent = literal_after   # the literal block proper
+                literal_after = None
+                continue
+            literal_after = None
+
+        if not stripped:
+            continue
+
+        match = DIRECTIVE.match(raw)
+        if match:
+            if (match.group(1) or "").lower() not in PROSE_DIRECTIVES:
+                skip_indent = indent
+                continue
+            # An admonition: count the text on its own line, then let its body
+            # fall through and be counted like any other paragraph.
+            stripped = raw[match.end():].strip()
+
+        stripped = LITERAL.sub(r"\1", ROLE.sub(r"\1", stripped))
+        if not stripped or set(stripped) <= RULE_CHARS:
+            continue
+
+        words += sum(1 for token in stripped.split() if is_word(token))
+
+        # "Text follows::" introduces a literal block of indented code.
+        if stripped.endswith("::"):
+            literal_after = indent
+
     return words
 
 

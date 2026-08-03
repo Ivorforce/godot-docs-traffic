@@ -126,9 +126,23 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
 - **translation reads** — pageviews for the same path summed across all
   non-English languages and all doc versions, so a page's weight in translation
   shows up next to its English figure.
-- **words** — a rough count of prose in the source file: directive bodies and
-  section underlines dropped, roles unwrapped. It is for comparing pages against
-  each other, not a typographic measurement.
+- **words** — approximate prose words in the source file. A token counts if it
+  contains a letter (`str.isalpha()`, so non-Latin text counts too); table
+  pipes, bullet markers, rule lines and bare numbers do not. Code is excluded
+  both as directive bodies (`code-block`, `code-tab`) and as literal blocks
+  opened by a trailing `::`; admonition bodies (`note`, `warning`, `tip`,
+  `seealso`, …) *are* counted, being ordinary prose that merely renders as a
+  callout — they are about a tenth of the manual. Roles and inline literals are
+  unwrapped to their text.
+
+  It is a size signal for comparing pages, not a typographic measurement. The
+  earlier version counted raw whitespace tokens and skipped every directive
+  body, which cut both ways: `tutorials/i18n/locales.rst` measured 2.3× its real
+  length because a locale table's pipes counted as words, while
+  `tutorials/xr/xr_action_map.rst` measured 39% short because most of its prose
+  sits in notes. Neither error was visible in the total — the manual moved only
+  +6% overall — but both distorted the pages they hit, which is what the scatter
+  and the footprint bars actually read.
 - **footprint** — how much of the manual a section occupies, measured in words by
   default. Words approximate what a section costs to keep correct, since review,
   updating and translation all scale with prose rather than with file count.
