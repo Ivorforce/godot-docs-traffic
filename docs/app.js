@@ -92,7 +92,7 @@ function rel(row) {
   return DOCS.paths[row[PATH]].slice(PREFIX.length);
 }
 
-// The class reference is 1,079 generated pages against 512 hand-written ones.
+// The class reference is 1,079 generated pages against 511 hand-written ones.
 // Left in, it decides the shape of every page-count comparison on the page, so
 // it is opt-in everywhere rather than only in the chart that motivated it.
 function visibleRows() {

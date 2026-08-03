@@ -19,9 +19,8 @@ v1 works end to end: fetch, inventory, aggregate, and a page that opens straight
 from disk. Not published — see *Publishing clearance* below.
 
 The headline finding so far is about the data rather than the docs. The manual
-has **no dead pages**: of 1,591 English `/en/stable/` pages, all but one were
-read at least once in July 2026, and 512 hand-written pages carry a million
-pageviews. So "what can be trimmed" has no easy answer here, and the report is
+has **no dead pages**: all 1,590 English `/en/stable/` pages were read at least
+once in July 2026, and 511 hand-written pages carry a million pageviews. So "what can be trimmed" has no easy answer here, and the report is
 built to show proportion — 26 pages carry half the reading — rather than to
 produce a deletion list.
 
@@ -130,6 +129,16 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   URLs with no source file (~2% of pageviews: removed pages, Sphinx's search
   page, scanner noise) are excluded from every figure and listed separately, so
   the exclusion is visible rather than silent.
+
+  `404.rst` is dropped as well, being the "page not found" template rather than
+  a page of the manual. Read the Docs serves it *in place of* a missing URL and
+  the pageview records the URL the reader asked for, so the reading it stands
+  for is already counted under **forwarded** and in the removed-pages table,
+  while `/en/stable/404.html` itself draws two or three views a month from people
+  who navigate to it directly. Counted as a page it was a bar in the section
+  chart with no reading and no words — its body is a raw HTML block, so its
+  length means nothing either — and the one page behind what used to read "all
+  but one page was read at least once".
 - **removed** — the commit that deleted a page's source file, from a second
   `git log --diff-filter=D` walk. A page removed *before* the traffic window
   was gone for all of it, so every view is a reader hitting a dead end; one
@@ -145,12 +154,13 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   in the traffic data — and read naively, looks exactly like a dead link.
 
   Joining the file is what makes the table actionable rather than merely
-  descriptive. For July 2026, of 26,854 pageviews to URLs with no source file:
-  13,793 (51%) were forwarded and the reader arrived where they meant to, 9,200
-  went to URLs that were never pages here (Sphinx's search page, downloadable
-  examples, `null` paths, scanner noise), and **3,861 across 307 URLs** were
-  removed pages with nothing forwarding them. Only that last group is worth
-  anyone's time, and it is a third of what the unjoined list implied. The
+  descriptive. Pageviews to URLs with no source file split three ways: about
+  half are forwarded by the CSV and the reader arrived where they meant to, most
+  of the rest went to URLs that were never pages here (Sphinx's search page,
+  downloadable examples, `null` paths, scanner noise), and a small remainder are
+  **removed pages with nothing forwarding them**. Only that last group is worth
+  anyone's time, and it is a fraction of what the unjoined list implied;
+  `python3 scripts/aggregate.py --check` prints the current split. The
   inference holds in one direction only, which is enough: since a server-side
   redirect records no pageview, a URL that reaches this report is not covered by
   one, so absence from the CSV means genuinely unforwarded rather than possibly

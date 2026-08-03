@@ -40,6 +40,15 @@ REPO = "https://github.com/godotengine/godot-docs.git"
 BRANCH = "stable"
 URL_PREFIX = "/en/stable/"
 
+# 404.rst is the "page not found" template, not a page of the manual. Read the
+# Docs serves it *in place of* a missing URL, and the analytics event records the
+# URL the reader asked for, so its own traffic is structurally zero — the reading
+# it stands for is already counted under "removed pages with no redirect". Its
+# body is a raw HTML block, so its length is meaningless too. Left in, it was a
+# bar in the section chart with no reading and no words, and the one page behind
+# "all but one page was read at least once".
+NOT_A_PAGE = frozenset({"404.rst"})
+
 # Class reference pages are generated from the engine's own source XML and
 # synced in bulk; they are not editorially maintained here, and their git dates
 # reflect sync commits rather than anyone writing prose.
@@ -305,7 +314,7 @@ def main():
     pages, toctrees = {}, {}
     for path in sorted(CACHE.rglob("*.rst")):
         rel = str(path.relative_to(CACHE))
-        if rel.startswith((".", "_")):
+        if rel.startswith((".", "_")) or rel in NOT_A_PAGE:
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")

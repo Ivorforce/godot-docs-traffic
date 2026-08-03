@@ -293,6 +293,13 @@ class TestGeneratedPayload(unittest.TestCase):
         for path in self.docs["paths"]:
             self.assertTrue(path.startswith(self.docs["prefix"]), path)
 
+    def test_the_not_found_template_is_not_a_page(self):
+        """404.rst is what Read the Docs serves *instead of* a missing URL, so
+        its own pageviews are structurally zero and its body is raw HTML. As a
+        page it was an empty bar in the section chart and the one exception to
+        "every page was read at least once"."""
+        self.assertNotIn(self.docs["prefix"] + "404.html", self.docs["paths"])
+
     def test_funnel_paths_exist(self):
         known = set(self.docs["paths"])
         for url in self.docs["funnel"]:
