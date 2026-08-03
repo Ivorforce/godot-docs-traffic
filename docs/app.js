@@ -108,9 +108,11 @@ function childrenOf(section) {
     const r = rel(row);
     if (section && !r.startsWith(base)) continue;
     const rest = r.slice(base.length);
-    if (!rest) continue;
-    const cut = rest.indexOf("/");
-    const key = cut === -1 ? rest : rest.slice(0, cut);
+    // The manual's own landing page has nothing after the prefix. It is the
+    // second most-read page there is, so dropping it silently cost the reading
+    // bars a tenth of their total while leaving the word bars intact.
+    const cut = rest ? rest.indexOf("/") : -1;
+    const key = !rest ? "(landing page)" : cut === -1 ? rest : rest.slice(0, cut);
     const entry = out.get(key) || { key, pv: 0, pages: 0, words: 0, dir: cut !== -1 };
     entry.pv += row[PV];
     entry.pages += 1;
@@ -207,8 +209,12 @@ function buildSections() {
   charts.sections = new Chart(document.getElementById("chart-sections"), {
     type: "bar",
     data: { labels: [], datasets: [
-      { label: "share of reading", backgroundColor: COLORS.reading, data: [] },
-      { label: "share of words", backgroundColor: COLORS.pages, data: [] },
+      // Each label carries its own denominator: the two series are percentages
+      // of different totals, and an axis marked only "%" invites reading the
+      // gap between them as a single quantity.
+      { label: "reading — % of all pageviews", backgroundColor: COLORS.reading,
+        data: [] },
+      { label: "size — % of all words", backgroundColor: COLORS.pages, data: [] },
     ]},
     options: Object.assign({}, BASE, {
       indexAxis: "y",
@@ -223,10 +229,17 @@ function buildSections() {
         // hides a number — it only changes which one is drawn to scale.
         tooltip: { callbacks: { afterBody(items) {
           const c = charts.sections.$children[items[0].dataIndex];
-          return `${num(c.pv)} pageviews\n${num(c.words)} words in ` +
-                 `${num(c.pages)} page${c.pages === 1 ? "" : "s"}` +
-                 (c.pages ? ` (${num(c.words / c.pages)} each)` : "") +
-                 (c.dir ? "\nclick to open" : "");
+          const lines = [
+            `${num(c.pv)} pageviews`,
+            `${num(c.words)} words in ${num(c.pages)} page${c.pages === 1 ? "" : "s"}` +
+              (c.pages ? ` (${num(c.words / c.pages)} each)` : ""),
+          ];
+          // The ratio the two bars ask the reader to work out, given directly.
+          if (c.words) {
+            lines.push(`${num((1000 * c.pv) / c.words)} pageviews per 1,000 words`);
+          }
+          if (c.dir) lines.push("click to open");
+          return lines.join("\n");
         } } },
       },
       onClick(evt, els) {
@@ -452,7 +465,7 @@ function renderSections() {
   charts.sections.data.datasets[1].data =
     children.map((c) => Math.round((1000 * size(c)) / totalSize) / 10);
   charts.sections.data.datasets[1].label =
-    byWords ? "share of words" : "share of pages";
+    byWords ? "size — % of all words" : "size — % of all pages";
   charts.sections.update();
 }
 
