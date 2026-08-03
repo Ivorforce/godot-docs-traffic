@@ -155,7 +155,24 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   handled elsewhere.
 - **translation reads** — pageviews for the same path summed across all
   non-English languages and all doc versions, so a page's weight in translation
-  shows up next to its English figure.
+  shows up next to its English figure. 39% of all docs reading is non-English.
+
+  The table shows the count; the scatter colours by the **share** — translated
+  reading as a multiple of the same page's English figure — because the raw
+  count correlates with English reading at r = 0.92 on log-log and as a colour
+  would only redraw the horizontal axis. The share does vary, and structurally:
+  `getting_started/introduction` runs at 0.75× and `tutorials/editor` at 0.83×,
+  against 0.45× for `tutorials/scripting` and 0.30× for `tutorials/inputs`.
+  People start in their own language and move to English as they go deeper. Two
+  readings are actionable: a share near zero flags a page the translations have
+  not reached (the whole of `community/asset_store/` sits at 0.00–0.03×, being
+  new), and a high share flags a page where an English rewrite invalidates work
+  in fifteen languages.
+
+  Translation paths are keyed on the remainder after `/<lang>/<version>/`, which
+  is *empty* for the manual's landing page — the largest single key in the file
+  at 34,842 views. Folding it onto `index.html` is what `load_i18n` does beyond
+  the obvious directory rule, and `TestI18nKeys` pins it.
 - **words** — approximate prose words in the source file. A token counts if it
   contains a letter (`str.isalpha()`, so non-Latin text counts too); table
   pipes, bullet markers, rule lines and bare numbers do not. Code is excluded
@@ -183,9 +200,27 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   (9.1%), while `navigation/` is the reverse: 4.8% of pages, 2.7% of words, being
   many short documents rather than a lot of prose. Pages in the manual range from
   under 150 words to over 2,000, so the choice is not cosmetic.
+- **change on the month** — a page's pageviews against the month before. The
+  table gives it raw; the scatter colours by it *with the whole docs' change
+  divided out*, since in a month when the manual rose 5.7% overall a page at
+  +5% held its place rather than grew. The reference is every page in scope, so
+  drilling into a section does not quietly change what a colour means. Two
+  months is a short baseline: pages under a few hundred views a month move 15%
+  on noise, which the page says next to the chart.
 - **last edit** — the most recent commit touching the source file, from a single
   `git log` walk. For the class reference these are bulk sync commits, not
   authorship, which is one reason it is excluded by default.
+
+  It is a table column only. It was a scatter colouring until the commits behind
+  it were checked: of the 130 manual pages last edited in the three months to
+  `bca391ae6`, the median was last touched by a commit changing under five lines
+  and 30% by one changing two or fewer — `fix typos in gettext i18n tutorial`,
+  `fixed Visual Studio being typo'd as Visaul Studio`, a six-file sweep replacing
+  asset-library links two lines at a time. "Recently edited" therefore means
+  someone corrected a typo, not that the page was reviewed, and an old date is
+  equally mute, since a page can go untouched because it is still correct. A
+  scale that cannot be read in either direction was worth more as space than as
+  colour.
 
 ## Runbook
 

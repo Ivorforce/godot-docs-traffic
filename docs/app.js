@@ -17,7 +17,7 @@ const PREFIX = DOCS.prefix;
 // Row layout emitted by scripts/aggregate.py.
 const PATH = 0, PV = 1, PREV = 2, WORDS = 3, EDITED = 4, I18N = 5, GENERATED = 6;
 
-const state = { section: "", classes: false, filter: "", scatter: "age",
+const state = { section: "", classes: false, filter: "", scatter: "trend",
                 footprint: "words" };
 const charts = {};
 
@@ -29,22 +29,38 @@ const COLORS = {
   grid: "rgba(208,215,222,.6)",
 };
 
-// Blue-to-amber ramp: the two families stay distinguishable in every colour
-// vision type, and the steps inside each family differ in lightness, so the
-// order survives too.
-const AGE_BINS = [
-  { max: 183, label: "edited < 6 months ago", color: "#0d366b" },
-  { max: 365, label: "6–12 months", color: "#2a78d6" },
-  { max: 730, label: "1–2 years", color: "#86b6ef" },
-  { max: 1460, label: "2–4 years", color: "#d4a72c" },
-  { max: Infinity, label: "4+ years", color: "#7d4e00" },
+/* Blue-to-amber ramps: the two families stay distinguishable in every colour
+   vision type, and the steps inside each family differ in lightness, so the
+   order survives too.
+
+   Both scales are measured against a reference the reader can name, because an
+   absolute one would only redraw something already on the chart. Month-on-month
+   change is stated against the docs' own change, since a month when everything
+   rose 6% says nothing about any single page; translation reading is stated as
+   a share of the page's English figure, since the raw count tracks English
+   reading closely (log-log r = 0.92) and would just repeat the x axis. */
+const TREND_BINS = [
+  { max: -0.20, label: "falling against the docs (−20% or more)", color: "#7d4e00" },
+  { max: -0.05, label: "below (−5 to −20%)", color: "#d4a72c" },
+  { max: 0.05, label: "moving with the docs (±5%)", color: "#8c959f" },
+  { max: 0.20, label: "above (+5 to +20%)", color: "#2a78d6" },
+  { max: Infinity, label: "rising against the docs (+20% or more)", color: "#0d366b" },
 ];
 
+// Only drawn when something lands in it: nothing has an empty previous month in
+// the current data, and a permanently empty legend key is noise.
+const TREND_UNKNOWN = { label: "no figure for the month before", color: "#d0d7de",
+                        optional: true };
+
+// Thresholds sit either side of the manual's median share (0.66), so the two
+// middle bins split the ordinary range rather than pooling it. The first bin is
+// the one to act on: a page nobody reads in translation is usually one the
+// translations have not reached yet.
 const I18N_BINS = [
-  { max: 0.1, label: "little translated reading", color: "#86b6ef" },
-  { max: 0.5, label: "up to half again", color: "#2a78d6" },
-  { max: 1.5, label: "comparable to English", color: "#0d366b" },
-  { max: Infinity, label: "mostly read in translation", color: "#7d4e00" },
+  { max: 0.05, label: "no translated reading", color: "#d4a72c" },
+  { max: 0.45, label: "under half the English figure", color: "#86b6ef" },
+  { max: 0.85, label: "the usual share (about 0.6×)", color: "#2a78d6" },
+  { max: Infinity, label: "as read in translation as in English", color: "#0d366b" },
 ];
 
 // ---- state <-> hash ---------------------------------------------------------
@@ -54,7 +70,7 @@ function readHash() {
   if (p.has("s")) state.section = p.get("s");
   if (p.has("c")) state.classes = p.get("c") === "1";
   if (p.has("q")) state.filter = p.get("q");
-  if (p.has("m")) state.scatter = p.get("m") === "i18n" ? "i18n" : "age";
+  if (p.has("m")) state.scatter = p.get("m") === "i18n" ? "i18n" : "trend";
   if (p.has("f")) state.footprint = p.get("f") === "pages" ? "pages" : "words";
 }
 
@@ -63,7 +79,7 @@ function writeHash() {
   if (state.section) p.set("s", state.section);
   if (state.classes) p.set("c", "1");
   if (state.filter) p.set("q", state.filter);
-  if (state.scatter !== "age") p.set("m", state.scatter);
+  if (state.scatter !== "trend") p.set("m", state.scatter);
   if (state.footprint !== "words") p.set("f", state.footprint);
   const q = p.toString();
   history.replaceState(null, "", q ? "#" + q : location.pathname);
@@ -134,9 +150,11 @@ function pct(v, total) {
   return (p < 1 ? p.toFixed(1) : Math.round(p)) + "%";
 }
 
-function ageDays(ts) {
-  if (!ts) return Infinity;
-  return (Date.now() / 1000 - ts) / 86400;
+// A fraction as a signed percentage. The sign is the point — "+8%" and "8%"
+// read differently when the neighbouring figure may be negative.
+function signed(v) {
+  const p = Math.round(100 * v);
+  return (p > 0 ? "+" : "") + p + "%";
 }
 
 function ageLabel(ts) {
@@ -145,12 +163,32 @@ function ageLabel(ts) {
   return d.toISOString().slice(0, 7);
 }
 
-function binFor(row) {
+function i18nRatio(row) {
+  return row[PV] ? row[I18N] / row[PV] : 0;
+}
+
+/* This page's month-on-month change with the whole docs' change divided out.
+   +8% in a month when the docs rose 6% is a page holding its place, not a page
+   growing, and colouring by the raw figure would paint the site trend onto
+   every point. `base` is the change across everything currently in scope, so a
+   section that moved as one still shows as one. */
+function excessGrowth(row, base) {
+  if (!row[PREV]) return null;
+  return (row[PV] / row[PREV]) / (1 + base) - 1;
+}
+
+function docsGrowth(rows) {
+  const now = rows.reduce((a, r) => a + r[PV], 0);
+  const before = rows.reduce((a, r) => a + r[PREV], 0);
+  return before ? (now - before) / before : 0;
+}
+
+function binFor(row, base) {
   if (state.scatter === "i18n") {
-    const ratio = row[PV] ? row[I18N] / row[PV] : 0;
-    return I18N_BINS.find((b) => ratio <= b.max);
+    return I18N_BINS.find((b) => i18nRatio(row) <= b.max);
   }
-  return AGE_BINS.find((b) => ageDays(row[EDITED]) <= b.max);
+  const excess = excessGrowth(row, base);
+  return excess === null ? TREND_UNKNOWN : TREND_BINS.find((b) => excess <= b.max);
 }
 
 function median(values) {
@@ -277,11 +315,21 @@ function buildScatter() {
         legend: { labels: { boxWidth: 8, usePointStyle: true, font: { size: 11 } } },
         crosshairs: {},
         tooltip: { callbacks: {
+          // Both colourings are ratios against a reference, so both references
+          // are given here as well: neither number should have to be trusted on
+          // the strength of a legend key alone.
           label(item) {
             const r = item.raw;
+            const base = charts.scatter.$base || 0;
             return [r.label,
                     `${num(r.pv)} pageviews · ${num(r.words)} words`,
-                    `translations ${num(r.i18n)} · last edit ${r.age}`];
+                    r.delta === null
+                      ? "no figure for the month before"
+                      : `${signed(r.delta)} on the month, against ${signed(base)} ` +
+                        `across the docs`,
+                    `translations ${num(r.i18n)} · ${r.ratio.toFixed(2)}× the ` +
+                      `English figure`,
+                    `last edit ${r.age}`];
           },
         } },
       },
@@ -443,27 +491,39 @@ function renderSections() {
 
 function renderScatter() {
   const rows = sectionRows();
-  const bins = state.scatter === "i18n" ? I18N_BINS : AGE_BINS;
+  // Measured over everything in scope, not the current section: drilling into a
+  // section must not silently change what a colour means.
+  const base = docsGrowth(visibleRows());
+  const bins = state.scatter === "i18n"
+    ? I18N_BINS
+    : TREND_BINS.concat([TREND_UNKNOWN]);
   const groups = new Map(bins.map((b) => [b.label, []]));
   for (const row of rows) {
-    const bin = binFor(row);
+    const bin = binFor(row, base);
+    const excess = excessGrowth(row, base);
     groups.get(bin.label).push({
       // A page with no reading at all would fall off a log axis; plotting it
       // just below 1 keeps it visible without claiming it was read.
       x: Math.max(row[PV], 0.5),
       y: Math.max(row[WORDS], 1),
       pv: row[PV], words: row[WORDS], i18n: row[I18N],
+      ratio: i18nRatio(row),
+      delta: row[PREV] ? (row[PV] - row[PREV]) / row[PREV] : null,
+      excess,
       age: ageLabel(row[EDITED]),
       label: DOCS.paths[row[PATH]],
     });
   }
-  charts.scatter.data.datasets = bins.map((b) => ({
-    label: b.label,
-    data: groups.get(b.label),
-    backgroundColor: b.color,
-    pointRadius: 2.5,
-    pointHoverRadius: 5,
-  }));
+  charts.scatter.$base = base;
+  charts.scatter.data.datasets = bins
+    .filter((b) => !b.optional || groups.get(b.label).length)
+    .map((b) => ({
+      label: b.label,
+      data: groups.get(b.label),
+      backgroundColor: b.color,
+      pointRadius: 2.5,
+      pointHoverRadius: 5,
+    }));
   charts.scatter.options.plugins.crosshairs = {
     x: median(rows.map((r) => Math.max(r[PV], 0.5))),
     y: median(rows.map((r) => Math.max(r[WORDS], 1))),
@@ -566,7 +626,7 @@ function renderTable() {
           td.textContent = "—";
         } else {
           const p = Math.round(v * 100);
-          td.textContent = (p > 0 ? "+" : "") + p + "%";
+          td.textContent = signed(v);
           td.style.color = p > 15 ? "#1a7f37" : p < -15 ? "#cf222e" : "#57606a";
         }
       } else {

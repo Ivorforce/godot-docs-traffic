@@ -112,11 +112,18 @@ def load_docs_month(month):
 
 def load_i18n(month):
     """{path below /<lang>/<version>/: pageviews} summed over all non-English
-    languages, so a page can show how much it is read in translation."""
+    languages, so a page can show how much it is read in translation.
+
+    Keys must land on the same form `build_docs` derives from a canonical
+    English URL, which is `index.html` for the manual's landing page. A reader
+    at `/ja/stable/` leaves an *empty* remainder, not one ending in "/", so the
+    directory rule alone misses it — and that one path is the largest single key
+    in the file (34,842 views in 2026-07, 4% of all translated reading).
+    """
     out = collections.Counter()
     for row in store.read("docs-i18n", month):
         rest = row["p"]
-        if rest.endswith("/"):
+        if not rest or rest.endswith("/"):
             rest += "index.html"
         out[rest] += row["pv"]
     return out

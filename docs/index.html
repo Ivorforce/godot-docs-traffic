@@ -135,8 +135,8 @@ source rather than written or trimmed here.</p>
 
 <h2>Where pages sit
   <span class="range-group" role="group" aria-label="Colour" id="scatter-mode">
-    <button data-mode="age" aria-pressed="true">by last edit</button>
-    <button data-mode="i18n" aria-pressed="false">by translation reads</button>
+    <button data-mode="trend" aria-pressed="true">by change on the month</button>
+    <button data-mode="i18n" aria-pressed="false">by translation share</button>
   </span>
 </h2>
 <div class="chart-box tall"><canvas id="chart-scatter"></canvas></div>
@@ -145,9 +145,20 @@ source rather than written or trimmed here.</p>
 crosshairs at this section's medians rather than at invented thresholds. Pages
 low and to the right are read a lot and say little; pages high and to the left
 are long and seldom read — the ones worth <em>looking at</em>, since length is
-roughly what a page costs to keep correct. Colour is the last edit to the source
-file, or the reads its translations get, which is often where a page's real
-weight hides. Hover a point for the page; click to filter the table below to it.</p>
+roughly what a page costs to keep correct. Hover a point for the page; click to
+filter the table below to it.</p>
+<p class="caption">Colour is one of two ratios, each against a stated reference.
+<em>Change on the month</em> is a page's month-on-month change with the docs' own
+change divided out, so a month when everything rose paints nobody blue: a page
+marked rising is being opened more than the manual around it, which usually
+means a release, a new feature, or a link someone influential posted. Pages read
+a few hundred times a month swing by 15% on nothing at all, so read the left of
+the chart loosely. <em>Translation share</em> is translated reading as a multiple
+of the page's own English figure — the raw count is not shown, because it tracks
+English reading so closely that it would only redraw the horizontal axis. Around
+0.6× is ordinary here. Near zero usually means the translations have not reached
+the page yet rather than that nobody wants it, and a page near or above 1× is one
+where an English rewrite sets fifteen translations back.</p>
 <p class="caption" id="concentration"></p>
 
 <h2>Getting started, step by step</h2>
@@ -240,6 +251,13 @@ intent to download, not a completed one.</p>
     <li>Word count and last-edit date come from the docs source tree as it is
         today, not as it was during the traffic window. A page rewritten last week
         shows last week's date against a month of traffic.</li>
+    <li><strong>A recent last edit does not mean a page was reviewed.</strong>
+        Of the 130 manual pages last edited in the three months to the commit
+        above, the median one was last touched by a commit changing under five
+        lines, and 30% by one changing two or fewer — typo corrections and link
+        sweeps. An old date is no clearer, since a page can be untouched because
+        it is still correct. The column is a lookup for a single page, which is
+        why nothing on this page is sorted, coloured or ranked by it.</li>
     <li>The class reference is generated from the engine's source and synced in
         bulk, so its git dates record sync commits rather than anyone writing.
         It is excluded from the section chart by default for that reason.</li>

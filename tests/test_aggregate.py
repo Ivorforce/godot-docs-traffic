@@ -47,6 +47,36 @@ class TestCanonical(unittest.TestCase):
             "/en/stable/about/faq.html")
 
 
+class TestI18nKeys(unittest.TestCase):
+    """Translation paths must land on the key the English side produces.
+
+    `build_docs` keys the manual's landing page as "index.html". The rollup
+    stores it as the empty remainder of `/ja/stable/`, which is neither a
+    directory nor a file name, and is the single largest key in the file.
+    """
+
+    def fold(self, rows):
+        original = aggregate.store.read
+        aggregate.store.read = lambda kind, month: rows
+        try:
+            return aggregate.load_i18n("2026-07")
+        finally:
+            aggregate.store.read = original
+
+    def test_landing_page_folds_onto_index(self):
+        out = self.fold([{"p": "", "pv": 30}, {"p": "index.html", "pv": 5}])
+        self.assertEqual(out, {"index.html": 35})
+
+    def test_directory_folds_onto_index(self):
+        out = self.fold([{"p": "tutorials/2d/", "pv": 7},
+                         {"p": "tutorials/2d/index.html", "pv": 3}])
+        self.assertEqual(out, {"tutorials/2d/index.html": 10})
+
+    def test_ordinary_page_is_untouched(self):
+        out = self.fold([{"p": "about/faq.html", "pv": 9}])
+        self.assertEqual(out, {"about/faq.html": 9})
+
+
 class TestDownloadParsing(unittest.TestCase):
     def test_parses_platform_and_version(self):
         got = aggregate.parse_download(
