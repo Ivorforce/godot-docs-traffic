@@ -24,8 +24,7 @@ const PATH = 0, PV = 1, PREV = 2, WORDS = 3, EDITED = 4, I18N = 5, GENERATED = 6
 // The per-page monthly series behind the churn grid, and the months it covers.
 const CHURN = DOCS.churn;
 
-const state = { section: "", classes: false, filter: "", scatter: "trend",
-                footprint: "words" };
+const state = { section: "", classes: false, filter: "", footprint: "words" };
 const charts = {};
 
 const COLORS = {
@@ -36,39 +35,28 @@ const COLORS = {
   grid: "rgba(208,215,222,.6)",
 };
 
-/* Blue-to-amber ramps: the two families stay distinguishable in every colour
+/* A blue-to-amber ramp: the two families stay distinguishable in every colour
    vision type, and the steps inside each family differ in lightness, so the
-   order survives too.
+   order survives too. Amber is the end to act on, as everywhere else here.
 
-   Both scales are measured against a reference the reader can name, because an
-   absolute one would only redraw something already on the chart. Month-on-month
-   change is stated against the docs' own change, since a month when everything
-   rose 6% says nothing about any single page; translation reading is stated as
-   a share of the page's English figure, since the raw count tracks English
-   reading closely (log-log r = 0.92) and would just repeat the x axis. Both
-   sides of that share are the current docs only — see the caveats. */
-const TREND_BINS = [
-  { max: -0.20, label: "falling against the docs (−20% or more)", color: "#7d4e00" },
-  { max: -0.05, label: "below (−5 to −20%)", color: "#d4a72c" },
-  { max: 0.05, label: "moving with the docs (±5%)", color: "#8c959f" },
-  { max: 0.20, label: "above (+5 to +20%)", color: "#2a78d6" },
-  { max: Infinity, label: "rising against the docs (+20% or more)", color: "#0d366b" },
-];
+   Turnover is lines changed over the churn window against the page's length
+   now, the same measure the churn grid shades by, so the two agree about what
+   a busy page is. It is the one figure tested here that says something the
+   position does not: against pageviews it measures −0.09 and against words
+   0.01, where colouring by month-on-month change or by translation share both
+   leaned on the horizontal axis.
 
-// Only drawn when something lands in it: nothing has an empty previous month in
-// the current data, and a permanently empty legend key is noise.
-const TREND_UNKNOWN = { label: "no figure for the month before", color: "#d0d7de",
-                        optional: true };
-
-// Thresholds sit either side of the manual's median share (0.56), so the two
-// middle bins split the ordinary range rather than pooling it. The first bin is
-// the one to act on: a page nobody reads in translation is usually one the
-// translations have not reached yet.
-const I18N_BINS = [
-  { max: 0.05, label: "no translated reading", color: "#d4a72c" },
-  { max: 0.40, label: "under 0.4× the English figure", color: "#86b6ef" },
-  { max: 0.75, label: "the usual share (about 0.55×)", color: "#2a78d6" },
-  { max: Infinity, label: "0.75× or more", color: "#0d366b" },
+   The first threshold is the lower quartile rather than zero exactly. Whether
+   a quiet page received one typo fix in two years is an accident of who walked
+   past it, and splitting there put only 3 pages in the amber bin inside the
+   long-and-seldom-read corner, where the quartile puts 17 — a list someone can
+   work through. The last is nameable rather than fitted: a page changed by its
+   whole length again was rewritten, and that is the top eighth. */
+const CHURN_BINS = [
+  { max: 0.05, label: "barely touched (under 0.05× its length)", color: "#d4a72c" },
+  { max: 0.30, label: "lightly worked (0.05 to 0.3×)", color: "#86b6ef" },
+  { max: 1.00, label: "reworked (0.3 to 1×)", color: "#2a78d6" },
+  { max: Infinity, label: "rewritten over (1× its length or more)", color: "#0d366b" },
 ];
 
 /* One entry per getting-started tutorial, assigned in the order the docs list
@@ -94,7 +82,6 @@ function readHash() {
   state.section = p.get("s") || "";
   state.classes = p.get("c") === "1";
   state.filter = p.get("q") || "";
-  state.scatter = p.get("m") === "i18n" ? "i18n" : "trend";
   state.footprint = p.get("f") === "pages" ? "pages" : "words";
 }
 
@@ -103,7 +90,6 @@ function writeHash() {
   if (state.section) p.set("s", state.section);
   if (state.classes) p.set("c", "1");
   if (state.filter) p.set("q", state.filter);
-  if (state.scatter !== "trend") p.set("m", state.scatter);
   if (state.footprint !== "words") p.set("f", state.footprint);
   const q = p.toString();
   // Changing scope is a navigation and Back should undo it; typing in the filter
@@ -222,28 +208,16 @@ function i18nRatio(row) {
   return row[PV] ? row[I18N] / row[PV] : 0;
 }
 
-/* This page's month-on-month change with the whole docs' change divided out.
-   +8% in a month when the docs rose 6% is a page holding its place, not a page
-   growing, and colouring by the raw figure would paint the site trend onto
-   every point. `base` is the change across everything currently in scope, so a
-   section that moved as one still shows as one. */
-function excessGrowth(row, base) {
-  if (!row[PREV]) return null;
-  return (row[PV] / row[PREV]) / (1 + base) - 1;
+/* Lines changed over the churn window against the page's length now. Dividing
+   by the length today rather than the length at the time is the same choice the
+   churn grid makes: one divisor per page keeps a rewrite and a doubling in
+   length from reading alike. */
+function turnover(row) {
+  return (row[LINES] || 0) / Math.max(row[LENGTH], 1);
 }
 
-function docsGrowth(rows) {
-  const now = rows.reduce((a, r) => a + r[PV], 0);
-  const before = rows.reduce((a, r) => a + r[PREV], 0);
-  return before ? (now - before) / before : 0;
-}
-
-function binFor(row, base) {
-  if (state.scatter === "i18n") {
-    return I18N_BINS.find((b) => i18nRatio(row) <= b.max);
-  }
-  const excess = excessGrowth(row, base);
-  return excess === null ? TREND_UNKNOWN : TREND_BINS.find((b) => excess <= b.max);
+function binFor(row) {
+  return CHURN_BINS.find((b) => turnover(row) <= b.max);
 }
 
 function median(values) {
@@ -368,18 +342,19 @@ function buildScatter() {
         legend: { labels: { boxWidth: 8, usePointStyle: true, font: { size: 11 } } },
         crosshairs: {},
         tooltip: { callbacks: {
-          // Both colourings are ratios against a reference, so both references
-          // are given here as well: neither number should have to be trusted on
-          // the strength of a legend key alone.
+          // The colouring is a ratio, so both sides of it are given here: the
+          // bin a point landed in should not have to be trusted on the strength
+          // of a legend key alone. Translation reading rides along because it
+          // is the other thing worth knowing before editing one named page,
+          // even though the chart no longer colours by it.
           label(item) {
             const r = item.raw;
-            const base = charts.scatter.$base || 0;
             return [r.short,
                     `${num(r.pv)} pageviews · ${num(r.words)} words`,
-                    r.delta === null
-                      ? "no figure for the month before"
-                      : `${signed(r.delta)} on the month, against ${signed(base)} ` +
-                        `across the docs`,
+                    r.lines === 0
+                      ? "untouched over the window"
+                      : `${num(r.lines)} line${r.lines === 1 ? "" : "s"} changed · ` +
+                        `${r.turnover.toFixed(2)}× its ${num(r.length)} lines`,
                     `translations ${num(r.i18n)} · ${r.ratio.toFixed(2)}× the ` +
                       `English figure`,
                     `last edit ${r.age}`];
@@ -656,25 +631,18 @@ function renderSections() {
 
 function renderScatter() {
   const rows = sectionRows();
-  // Measured over everything in scope, not the current section: drilling into a
-  // section must not silently change what a colour means.
-  const base = docsGrowth(visibleRows());
-  const bins = state.scatter === "i18n"
-    ? I18N_BINS
-    : TREND_BINS.concat([TREND_UNKNOWN]);
-  const groups = new Map(bins.map((b) => [b.label, []]));
+  const groups = new Map(CHURN_BINS.map((b) => [b.label, []]));
   for (const row of rows) {
-    const bin = binFor(row, base);
-    const excess = excessGrowth(row, base);
-    groups.get(bin.label).push({
+    groups.get(binFor(row).label).push({
       // A page with no reading at all would fall off a log axis; plotting it
       // just below 1 keeps it visible without claiming it was read.
       x: Math.max(row[PV], 0.5),
       y: Math.max(row[WORDS], 1),
       pv: row[PV], words: row[WORDS], i18n: row[I18N],
       ratio: i18nRatio(row),
-      delta: row[PREV] ? (row[PV] - row[PREV]) / row[PREV] : null,
-      excess,
+      lines: row[LINES] || 0,
+      length: row[LENGTH],
+      turnover: turnover(row),
       age: ageLabel(row[EDITED]),
       // The full URL is what the table filters on, so it is kept; the tooltip
       // shows the part that differs between points, since every page here is
@@ -683,16 +651,13 @@ function renderScatter() {
       short: rel(row) || "(landing page)",
     });
   }
-  charts.scatter.$base = base;
-  charts.scatter.data.datasets = bins
-    .filter((b) => !b.optional || groups.get(b.label).length)
-    .map((b) => ({
-      label: b.label,
-      data: groups.get(b.label),
-      backgroundColor: b.color,
-      pointRadius: 2.5,
-      pointHoverRadius: 5,
-    }));
+  charts.scatter.data.datasets = CHURN_BINS.map((b) => ({
+    label: b.label,
+    data: groups.get(b.label),
+    backgroundColor: b.color,
+    pointRadius: 2.5,
+    pointHoverRadius: 5,
+  }));
   charts.scatter.options.plugins.crosshairs = {
     x: median(rows.map((r) => Math.max(r[PV], 0.5))),
     y: median(rows.map((r) => Math.max(r[WORDS], 1))),
@@ -1061,13 +1026,6 @@ function bindControls() {
     timer = setTimeout(() => { state.filter = filter.value; render(); }, 150);
   });
 
-  for (const btn of document.querySelectorAll("#scatter-mode button")) {
-    btn.addEventListener("click", () => {
-      state.scatter = btn.dataset.mode;
-      render();
-    });
-  }
-
   for (const btn of document.querySelectorAll("#footprint-mode button")) {
     btn.addEventListener("click", () => {
       state.footprint = btn.dataset.footprint;
@@ -1087,9 +1045,6 @@ function bindControls() {
 function syncControls() {
   const filter = document.getElementById("filter");
   if (filter.value !== state.filter) filter.value = state.filter;
-  for (const btn of document.querySelectorAll("#scatter-mode button")) {
-    btn.setAttribute("aria-pressed", String(btn.dataset.mode === state.scatter));
-  }
   for (const btn of document.querySelectorAll("#footprint-mode button")) {
     btn.setAttribute("aria-pressed",
                      String(btn.dataset.footprint === state.footprint));

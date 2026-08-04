@@ -42,6 +42,15 @@
   .chart-box { position: relative; height: 300px; margin-top: .5rem; }
   .chart-box.tall { height: 380px; }
   .chart-box.short { height: 170px; }
+  /* The scatter is the one chart whose two axes are the same kind of thing —
+     log decades — so a wide box is not a neutral choice: it spreads reading out
+     and squashes length, which tilts the diagonal the top-left corner is read
+     against. Square would be right and is too tall to scroll past, so this
+     splits the difference at roughly 3:2 on a full-width page. It tracks the
+     viewport because nothing else here has a breakpoint: a fixed 560px would
+     stretch the other way on a phone, where the plot is only some 320px wide.
+     The floor lands narrow screens near square, which is the honest shape. */
+  .chart-box.square { height: clamp(300px, 62vw, 560px); }
   table { border-collapse: collapse; width: 100%; font-size: .9rem; }
   th, td { text-align: right; padding: .25rem .5rem; border-bottom: 1px solid #d8dee4;
            font-variant-numeric: tabular-nums; }
@@ -192,13 +201,8 @@ Across the manual, pages range from under 150 words to over 2,000. The class
 reference is excluded by default from both, being generated from the engine's own
 source rather than written or trimmed here.</p>
 
-<h2>Where pages sit
-  <span class="range-group" role="group" aria-label="Colour" id="scatter-mode">
-    <button data-mode="trend" aria-pressed="true">by change on the month</button>
-    <button data-mode="i18n" aria-pressed="false">by translation share</button>
-  </span>
-</h2>
-<div class="chart-box tall"><canvas id="chart-scatter"></canvas></div>
+<h2>What each page costs and returns</h2>
+<div class="chart-box square"><canvas id="chart-scatter"></canvas></div>
 <p class="caption">Every page in the current section: how much it is read
 (horizontal) against how long it is (vertical), both on log scales, with the
 crosshairs at this section's medians rather than at invented thresholds. Pages
@@ -206,18 +210,37 @@ low and to the right are read a lot and say little; pages high and to the left
 are long and seldom read — the ones worth <em>looking at</em>, since length is
 roughly what a page costs to keep correct. Hover a point for the page; click to
 filter the table below to it.</p>
-<p class="caption">Colour is one of two ratios, each against a stated reference.
-<em>Change on the month</em> is a page's month-on-month change with the docs' own
-change divided out, so a month when everything rose paints nobody blue: a page
-marked rising is being opened more than the manual around it, which usually
-means a release, a new feature, or a link someone influential posted. Pages read
-a few hundred times a month swing by 15% on nothing at all, so read the left of
-the chart loosely. <em>Translation share</em> is translated reading as a multiple
-of the page's own English figure — the raw count is not shown, because it tracks
-English reading so closely that it would only redraw the horizontal axis. Around
-0.55× is ordinary here. Near zero usually means the translations have not reached
-the page yet rather than that nobody wants it, and a page near or above 1× is one
-where an English rewrite sets fifteen translations back.</p>
+<p class="caption">Colour finishes the question the position starts: whether
+anyone is already working on it — lines changed over the churn window
+(<span class="churn-window">…</span>) against the page's length now, the same
+measure that shades the grid further down. Read the <strong>pale</strong> end as
+the quiet end. A page high and to the left and pale is the one to look at: long,
+seldom read, and nobody has been near it in two years. The same page in
+<strong>dark blue</strong> is somebody else's project already, and the useful
+thing to do about it is nothing.</p>
+<p class="caption">In the long-and-seldom-read corner the split is roughly even —
+of 103 pages there, 17 are barely touched and 41 lightly worked, against 24
+reworked and 21 rewritten outright. That is the whole use of the colour: the
+position alone would have handed over all 103.</p>
+<p class="caption">Colour was chosen for what it is <em>not</em>: it does not
+repeat the axes. Turnover measures −0.09 against reading and 0.01 against length
+across this manual, so a point's colour is genuinely a third fact about it.
+Month-on-month change and translation share were both tried here and both leaned
+on the horizontal axis — translation share slides from 0.95× in the least-read
+tenth of pages to about 0.45× in the most-read, which paints the traffic
+distribution rather than the page. Both remain in the table below, where they are
+read one page at a time and that ceases to matter.</p>
+<p class="caption">Short pages swing, and the ratio has no ceiling: a 22-line
+stub can take 175 lines of work and read as 7.95×, where a 500-line page would
+need a rewrite half as large again to pass 1×. They crowd both ends accordingly:
+38% of the barely-touched sit in the shortest quarter of the manual, where chance
+would put 25%. Read the colour of a small point as the coarse signal it is. A
+page can also be quiet because it is finished — the measure records that nobody
+has needed to change it, and cannot say whether that is because it is right or
+because nobody looked. When the path bar puts the class
+reference back, the colours mean something else again: those pages are synced in
+bulk from the engine's source, so their turnover is the size of whatever the
+engine changed.</p>
 <p class="caption" id="concentration"></p>
 
 <h2>Where the docs are being written</h2>

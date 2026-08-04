@@ -184,10 +184,10 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   non-English languages, so a page's weight in translation shows up next to its
   English figure. 34% of reading on the current docs is non-English.
 
-  The table shows the count; the scatter colours by the **share** — translated
-  reading as a multiple of the same page's English figure — because the raw
-  count correlates with English reading at r = 0.92 on log-log and as a colour
-  would only redraw the horizontal axis. The share varies structurally:
+  The table shows the count and the **share** — translated reading as a multiple
+  of the same page's English figure. The share exists because the raw count
+  correlates with English reading at r = 0.92 on log-log, so it carries almost
+  nothing the English column does not. The share varies structurally:
   `engine_details/development` runs at 0.78× and `getting_started/introduction`
   at 0.72×, against 0.35× for `tutorials/networking` and 0.26× for
   `tutorials/inputs`. People start in their own language and move to English as
@@ -195,6 +195,17 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   the translations have not reached (the whole of `community/asset_store/` sits
   at 0.00–0.13×, being new), and a high share flags a page where an English
   rewrite invalidates work in fifteen languages.
+
+  It was a scatter colouring until the share was checked against the axis it
+  sits beside. Median share by tenth of traffic runs 0.95, 0.75, 0.69, 0.56,
+  0.54, 0.53, 0.47, 0.51, 0.43, 0.57 — a slide of −0.42 against log pageviews,
+  because translated reading is spread more evenly than English reading and the
+  ratio therefore falls as the denominator climbs. Dividing out the English
+  figure escapes the r = 0.92 of the raw count and lands on a weaker version of
+  the same problem: the colour draws the shape of the traffic distribution while
+  appearing to say something about the page. Both readings above are per-page
+  facts checked before editing one named page, which is what a table column is
+  for.
 
   Two joins have to be right for any of that to mean anything.
 
@@ -242,13 +253,19 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   (9.1%), while `navigation/` is the reverse: 4.8% of pages, 2.7% of words, being
   many short documents rather than a lot of prose. Pages in the manual range from
   under 150 words to over 2,000, so the choice is not cosmetic.
-- **change on the month** — a page's pageviews against the month before. The
-  table gives it raw; the scatter colours by it *with the whole docs' change
-  divided out*, since in a month when the manual rose 5.7% overall a page at
-  +5% held its place rather than grew. The reference is every page in scope, so
-  drilling into a section does not quietly change what a colour means. Two
-  months is a short baseline: pages under a few hundred views a month move 15%
-  on noise, which the page says next to the chart.
+- **change on the month** — a page's pageviews against the month before, as a
+  table column. Two months is a short baseline: pages under a few hundred views
+  a month move 15% on noise.
+
+  It too was a scatter colouring, stated with the whole docs' change divided out
+  so that in a month when the manual rose 5.7% a page at +5% read as holding its
+  place rather than growing. What killed it is that the noise and the signal
+  land in the same place. 84% of pages sit within ±20% of the docs' own move, and
+  of the 81 that do not, 61 are below median traffic — the correlation between
+  absolute excess growth and log pageviews is −0.23. So the colouring was
+  loudest exactly where the chart's own caption had to tell the reader to
+  discount it, and it answered a question about last month rather than about
+  what a page costs and returns.
 - **last edit** — the most recent commit touching the source file, from a single
   `git log` walk. For the class reference these are bulk sync commits, not
   authorship, which is one reason it is excluded by default.
@@ -263,7 +280,7 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   equally mute, since a page can go untouched because it is still correct. A
   scale that cannot be read in either direction was worth more as space than as
   colour — and measuring the size of those commits instead is what **lines
-  changed** below does.
+  changed** below does, which is what the scatter ended up colouring by.
 - **lines changed** — source lines added plus deleted over the two years ending
   at the recorded docs commit, from `git log --numstat -M`. Added and
   deleted are kept apart, and the table shows the total and the **net**: a page
@@ -272,6 +289,28 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   from rework — `tutorials/` added 13,473 lines against 3,623 deleted while
   `getting_started/` added 225 against 222, the same activity by volume and a
   different one in kind.
+
+  Against the page's current source length it becomes **turnover**, which is
+  what shades the churn grid and, since a page whose whole two-year history is
+  one typo fix is in the same state as one nobody opened, what colours the
+  scatter. It earns the colour by being the one candidate that does not repeat
+  the axes: across the manual turnover measures −0.09 against log pageviews and
+  0.01 against log words, where translation share measured −0.42 and month-on-
+  month change −0.23. So position says what a page costs and returns, and colour
+  says whether anyone is already working on it. In the long-and-seldom-read
+  corner that splits 103 pages into 17 barely touched and 41 lightly worked
+  against 24 reworked and 21 rewritten outright — the position alone would have
+  handed over all 103.
+
+  The bins are 0.05, 0.3 and 1×. The first is the lower quartile rather than
+  zero exactly, because whether a quiet page caught one passing typo fix is an
+  accident of who walked past it, and splitting at zero left only 3 pages amber
+  in that corner where the quartile leaves 17. The last is nameable rather than
+  fitted — a page changed by its whole length again was rewritten — and is the
+  top eighth. The ratio has no ceiling and short pages swing hardest: a 22-line
+  stub took 175 lines of work and reads as 7.95×, and 38% of barely-touched
+  pages sit in the shortest quarter of the manual against the 25% chance would
+  put there.
 
   Lines rather than commits, because a commit count cannot tell a typo from a
   rewrite. Over this window the most-committed hand-written page took 13
