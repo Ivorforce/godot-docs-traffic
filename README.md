@@ -1,4 +1,4 @@
-# godot-visitors
+# godot-docs-traffic
 
 Traffic report for the Godot documentation, built from
 [Plausible](https://plausible.io) analytics and rendered as a static page.
@@ -106,9 +106,9 @@ nothing sensitive ever entered history.
   and `os`. They belong to a *visitor* report rather than a docs one — the
   question they answer is about the engine's audience, not about which page
   needs care — and every claim on this page comes from joining traffic to the
-  source tree, which none of them can do. They are still fetched, so a separate
-  analysis one day starts with thirteen months on disk instead of an API key
-  and a backfill.
+  source tree, which none of them can do. Fetching them costs three queries a
+  month and keeps the history accumulating, so a separate analysis one day
+  starts with the months already stored rather than with a backfill.
 - `scripts/inventory.py` — clones `godot-docs` at the `stable` branch (which is
   what Read the Docs serves at `/en/stable/`, not `master`) and records each
   page's word count, last-edit timestamp, two-year line churn and toctree

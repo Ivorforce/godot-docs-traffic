@@ -5,8 +5,10 @@
     python3 scripts/fetch.py backfill         # every complete month with data
     python3 scripts/fetch.py incremental      # only months not yet stored
 
-Only this script needs PLAUSIBLE_API_KEY. Everything downstream reads data/raw/,
-so aggregation and the site work for anyone who clones the repo.
+Only this script needs PLAUSIBLE_API_KEY. Everything downstream reads data/raw/
+and never the API. That does not yet make a clone self-sufficient: data/raw/ is
+gitignored until the publishing clearance in the README, so running this script
+once is what a fresh clone needs before aggregation and the site work.
 
 What is stored, and why not simply everything: the docs site serves ~87k distinct
 URLs a month across 15 languages and a dozen versions. Keeping that per-page for

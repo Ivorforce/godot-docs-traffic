@@ -28,9 +28,9 @@ DEFAULT_URL = "https://plausible.godot.foundation/api/v2/query"
 DEFAULT_SITE = "godotengine.org"
 
 # Hostname values that split the one Plausible site into the two properties
-# this report treats separately. Anything else (readthedocs mirrors, translation
-# proxies, scrapers echoing the tracker) is deliberately excluded — see
-# `OTHER_HOSTS` in the README's caveats.
+# this report treats separately. Every query filters on one of them, so anything
+# else reporting to the site (readthedocs mirrors, translation proxies, scrapers
+# echoing the tracker) is excluded by never being asked for.
 DOCS_HOST = "docs.godotengine.org"
 WWW_HOST = "godotengine.org"
 
