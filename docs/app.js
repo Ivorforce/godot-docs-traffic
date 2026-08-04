@@ -273,7 +273,9 @@ function buildSections() {
       // The whole row raises the tooltip, not the bar. Sorted by pageviews, the
       // sections worth asking about are the short bars at the bottom, and their
       // counts were the hardest to reach when the rectangle was the target.
-      interaction: { mode: "index", intersect: false },
+      // axis: "y" because the bars run sideways — the default "x" would pick the
+      // row whose bar happens to end nearest the pointer, anywhere on the canvas.
+      interaction: { mode: "index", intersect: false, axis: "y" },
       scales: {
         x: { beginAtZero: true, ticks: { callback: (v) => v + "%" },
              grid: { color: COLORS.grid } },
