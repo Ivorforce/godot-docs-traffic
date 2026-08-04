@@ -39,8 +39,6 @@ URL_PREFIX = "/en/stable/"
 # but the tail is thousands of scanner hits, so it is cut and the cut reported.
 STALE_LIMIT = 25
 
-DOWNLOAD_HOST = "downloads.godotengine.org"
-
 
 def canonical(url):
     """Normalise a trafficked URL to the form the inventory uses.
@@ -164,69 +162,6 @@ def build_funnel(inventory):
         if landing and steps:
             out.append({"landing": landing, "steps": steps})
     return out
-
-
-def parse_download(url):
-    """('windows', '4.7.1') from a downloads.godotengine.org link, else None.
-
-    The download itself happens on a host Plausible never sees, so these
-    outbound clicks are the only record of what people actually take away.
-    """
-    parts = urllib.parse.urlsplit(url)
-    if parts.netloc != DOWNLOAD_HOST:
-        return None
-    q = urllib.parse.parse_qs(parts.query)
-    platform = (q.get("platform") or [""])[0]
-    version = (q.get("version") or [""])[0]
-    flavor = (q.get("flavor") or [""])[0]
-    slug = (q.get("slug") or [""])[0]
-    if not platform or not version:
-        return None
-    # platform arrives as "windows.64", "macos.universal", "android.apk"
-    family = platform.split(".")[0]
-    mono = "mono" in slug
-    return {"family": family, "platform": platform, "version": version,
-            "flavor": flavor or "stable", "mono": mono}
-
-
-def build_downloads(month):
-    rows = store.read("outbound", month)
-    by_family = collections.Counter()
-    by_version = collections.Counter()
-    by_mono = collections.Counter()
-    total_outbound = 0
-    download_clicks = 0
-    for row in rows:
-        total_outbound += row["n"]
-        parsed = parse_download(row["p"])
-        if not parsed:
-            continue
-        download_clicks += row["n"]
-        by_family[parsed["family"]] += row["n"]
-        by_version[parsed["version"]] += row["n"]
-        by_mono["C# / .NET" if parsed["mono"] else "standard"] += row["n"]
-
-    os_rows = store.read("os", month)
-    os_mix = {r["p"]: r["pv"] for r in os_rows}
-    # The OS a visitor browses with is not the OS they build for, but the gap
-    # between the two mixes is exactly what makes the comparison interesting.
-    os_family = collections.Counter()
-    for name, pv in os_mix.items():
-        key = {"GNU/Linux": "linux", "Ubuntu": "linux", "Windows": "windows",
-               "Mac": "macos", "iOS": "ios", "iPadOS": "ios",
-               "Android": "android", "Chrome OS": "linux",
-               "HarmonyOS": "android", "Fire OS": "android"}.get(name)
-        if key:
-            os_family[key] += pv
-
-    return {
-        "byFamily": by_family.most_common(),
-        "byVersion": by_version.most_common(12),
-        "byFlavor": by_mono.most_common(),
-        "osMix": os_family.most_common(),
-        "downloadClicks": download_clicks,
-        "outboundClicks": total_outbound,
-    }
 
 
 def churn_months(inventory):
@@ -414,21 +349,6 @@ def build_docs(months, inventory):
     }
 
 
-def build_www(months):
-    newest = months[-1]
-    rows = store.read("www", newest)
-    total = sum(r["pv"] for r in rows)
-    top = sorted(rows, key=lambda r: -r["pv"])[:60]
-    monthly = []
-    for month in months:
-        monthly.append(sum(r["pv"] for r in store.read("www", month)))
-    return {
-        "total": total,
-        "monthly": monthly,
-        "top": [[r["p"], r["pv"]] for r in top],
-    }
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -451,8 +371,6 @@ def main():
         "months": months,
         "period": plausible.month_range(months[-1]),
         "docs": docs,
-        "www": build_www(months),
-        "downloads": build_downloads(months[-1]),
     }
 
     total = sum(r[1] for r in docs["rows"])

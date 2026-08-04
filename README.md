@@ -100,6 +100,15 @@ nothing sensitive ever entered history.
   current docs and every version, because a share needs the first and the
   breadth of translated reading needs the second. Only the newest month pages the full
   hostname (nine requests); older months fetch the English subset in one.
+
+  Three kinds go unread by the report: `www` (pages on `godotengine.org`),
+  `outbound` (clicks leaving the site, which is where download links show up)
+  and `os`. They belong to a *visitor* report rather than a docs one — the
+  question they answer is about the engine's audience, not about which page
+  needs care — and every claim on this page comes from joining traffic to the
+  source tree, which none of them can do. They are still fetched, so a separate
+  analysis one day starts with thirteen months on disk instead of an API key
+  and a backfill.
 - `scripts/inventory.py` — clones `godot-docs` at the `stable` branch (which is
   what Read the Docs serves at `/en/stable/`, not `master`) and records each
   page's word count, last-edit timestamp, two-year line churn and toctree
@@ -407,7 +416,7 @@ Afterwards, `python3 scripts/fetch.py incremental` fetches only months not
 already stored, always refreshing the newest.
 
 Tests: `python3 -m unittest discover tests`. They cover URL canonicalisation,
-download-link parsing, the rst parsers, and the invariants the page depends on —
+the rst parsers, and the invariants the page depends on —
 including a check that no identity-derived number reaches the page, and one that
 per-visitor figures are still implausible, so if the instance is ever fixed the
 suite says so instead of the constraint quietly outliving its reason. Where the

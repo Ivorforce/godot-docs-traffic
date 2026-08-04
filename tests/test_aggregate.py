@@ -112,27 +112,6 @@ class TestCurrentEdition(unittest.TestCase):
             self.assertTrue(self.pinned(version), version)
 
 
-class TestDownloadParsing(unittest.TestCase):
-    def test_parses_platform_and_version(self):
-        got = aggregate.parse_download(
-            "https://downloads.godotengine.org/?version=4.7.1&flavor=stable"
-            "&slug=win64.exe.zip&platform=windows.64")
-        self.assertEqual(got["family"], "windows")
-        self.assertEqual(got["version"], "4.7.1")
-        self.assertFalse(got["mono"])
-
-    def test_detects_dotnet_build(self):
-        got = aggregate.parse_download(
-            "https://downloads.godotengine.org/?version=4.7.1&flavor=stable"
-            "&slug=mono_win64.zip&platform=windows.64")
-        self.assertTrue(got["mono"])
-
-    def test_ignores_other_outbound_links(self):
-        self.assertIsNone(aggregate.parse_download("https://fund.godotengine.org/"))
-        self.assertIsNone(
-            aggregate.parse_download("https://downloads.godotengine.org/"))
-
-
 class TestMonthHelpers(unittest.TestCase):
     def test_month_range_handles_lengths(self):
         self.assertEqual(plausible.month_range("2026-07"), ["2026-07-01", "2026-07-31"])

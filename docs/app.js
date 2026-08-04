@@ -432,43 +432,6 @@ function buildFunnel() {
   });
 }
 
-function buildDownloads() {
-  charts.downloads = new Chart(document.getElementById("chart-downloads"), {
-    type: "bar",
-    data: { labels: [], datasets: [
-      { label: "share of download clicks", backgroundColor: COLORS.reading, data: [] },
-      { label: "share of browsing", backgroundColor: COLORS.pages, data: [] },
-    ]},
-    options: Object.assign({}, BASE, {
-      indexAxis: "y",
-      scales: {
-        x: { beginAtZero: true, ticks: { callback: (v) => v + "%" },
-             grid: { color: COLORS.grid } },
-        y: { grid: { display: false } },
-      },
-      plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
-    }),
-  });
-
-  const versions = D.downloads.byVersion;
-  charts.versions = new Chart(document.getElementById("chart-versions"), {
-    type: "bar",
-    data: {
-      labels: versions.map((v) => v[0]),
-      datasets: [{ label: "download clicks", backgroundColor: COLORS.reading,
-                   data: versions.map((v) => v[1]) }],
-    },
-    options: Object.assign({}, BASE, {
-      scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: true, grid: { color: COLORS.grid },
-             ticks: { callback: (v) => num(v) } },
-      },
-      plugins: { legend: { display: false } },
-    }),
-  });
-}
-
 // ---- rendering --------------------------------------------------------------
 
 function renderStats() {
@@ -1086,24 +1049,6 @@ function renderStale() {
     `scanner traffic across ${num(urls.neverPage || 0)} URLs.`;
 }
 
-function renderDownloads() {
-  const dl = D.downloads;
-  const dlTotal = dl.byFamily.reduce((a, x) => a + x[1], 0) || 1;
-  const osTotal = dl.osMix.reduce((a, x) => a + x[1], 0) || 1;
-  const osMap = new Map(dl.osMix);
-  const families = dl.byFamily.map((x) => x[0]);
-  for (const [name] of dl.osMix) {
-    if (!families.includes(name)) families.push(name);
-  }
-  const dlMap = new Map(dl.byFamily);
-  charts.downloads.data.labels = families;
-  charts.downloads.data.datasets[0].data =
-    families.map((f) => Math.round((1000 * (dlMap.get(f) || 0)) / dlTotal) / 10);
-  charts.downloads.data.datasets[1].data =
-    families.map((f) => Math.round((1000 * (osMap.get(f) || 0)) / osTotal) / 10);
-  charts.downloads.update();
-}
-
 // ---- controls ---------------------------------------------------------------
 
 function bindControls() {
@@ -1203,12 +1148,10 @@ function init() {
   buildSections();
   buildScatter();
   buildFunnel();
-  buildDownloads();
   bindControls();
   render();
   renderFunnel();
   renderStale();
-  renderDownloads();
 }
 
 init();

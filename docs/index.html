@@ -357,19 +357,6 @@ this table means forwarded or never removed, not unmeasured. The redirects file
 is read at the docs commit shown at the top of the page; entries added since
 then will still appear here.</p>
 
-<h2>What people download</h2>
-<div class="chart-box"><canvas id="chart-downloads"></canvas></div>
-<p class="caption">Clicks on download links, by platform, against the mix of
-operating systems people browse the site with. The two are not the same question
-— you might browse on a phone and build for desktop — and the gap between them
-is the interesting part. Downloads happen on a host this analytics setup never
-sees, so these outbound clicks are the closest available measure; a click is an
-intent to download, not a completed one.</p>
-
-<h2>Editions and versions</h2>
-<div class="chart-box"><canvas id="chart-versions"></canvas></div>
-<p class="caption">Download clicks by engine version, over the same period.</p>
-
 <footer id="caveats">
   <strong>Caveats</strong>
   <ul>
@@ -435,9 +422,6 @@ intent to download, not a completed one.</p>
         (<code>/en/4.7/</code>, <code>/ja/4.5/</code> and older) are excluded on
         both sides — 130,039 pageviews of translated reading, a sixth of it,
         named in the tile above and in no share on this page.</li>
-    <li>Download figures count clicks on outbound links, not completed
-        downloads, and package managers, mirrors, Steam and distribution
-        repositories are invisible.</li>
   </ul>
   <p>Aggregated from Godot's self-hosted Plausible instance. Scripts, metric
      definitions and raw data live in the repository; the page reads a single
