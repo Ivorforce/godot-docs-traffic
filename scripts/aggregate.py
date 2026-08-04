@@ -219,12 +219,106 @@ def build_downloads(month):
     }
 
 
+def churn_months(inventory):
+    """Every month of the churn window, including ones nobody touched.
+
+    Built from the window rather than from the data: a section that was silent
+    for a quarter is the thing this grid exists to show, and months derived from
+    the commits themselves would close the gap up.
+    """
+    start = datetime.date.fromisoformat(inventory["churnSince"])
+    end = datetime.datetime.fromtimestamp(
+        inventory["churnHead"], datetime.timezone.utc).date()
+    out, year, month = [], start.year, start.month
+    while (year, month) <= (end.year, end.month):
+        out.append(f"{year:04d}-{month:02d}")
+        year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+    return out
+
+
+PERIOD_MONTHS = 3
+
+
+def churn_periods(months, head_month):
+    """The churn window cut into calendar quarters, oldest first.
+
+    Calendar periods rather than a window rolled back from the newest month.
+    Both are redrawn every month; the difference is that rolling boundaries move
+    under the reader, so a figure taken from one run covers a different span in
+    the next and no two runs can be compared. A closed calendar half never
+    changes again. The price is that the newest column is a part-period, which
+    is marked rather than hidden.
+
+    Quarters. Months were the first cut and were too fine to read — a third of
+    the cells were empty and one piece of work spread across two or three of
+    them, so an empty cell recorded the rhythm of when pull requests land rather
+    than anything about the page. At a quarter an empty cell means nothing
+    touched that part of the docs for three months, which is worth knowing.
+    Sixteen of them only fit the page once the labels and the figures are
+    abbreviated, which is why the grid says "Q3 22" and "24k".
+    """
+    groups = {}
+    for month in months:
+        year, number = int(month[:4]), int(month[5:])
+        groups.setdefault((year * 12 + number - 1) // PERIOD_MONTHS, []).append(month)
+    return [{"label": period_label(groups[key]), "months": groups[key],
+             "partial": groups[key][-1] == head_month}
+            for key in sorted(groups)]
+
+
+def period_label(group):
+    """"Q3 24". Short because eleven columns share the width of the page.
+
+    Groups are calendar-aligned, so every month in one falls in the same
+    quarter and the first of them names the whole column — including the newest,
+    which may hold only part of its quarter.
+    """
+    year, number = group[0].split("-")
+    return f"Q{(int(number) - 1) // PERIOD_MONTHS + 1} {year[2:]}"
+
+
+def build_churn(inventory, index):
+    """Lines changed per page per quarter, as {row index: {quarter: lines}}.
+
+    Emitted per page rather than rolled up per section, because the grid follows
+    the path bar like every other chart on the page: the rows are whatever level
+    the reader has drilled to, which is not a grouping this script can know.
+    Rolling up in the browser costs one pass over rows that are already in
+    memory.
+
+    Sparse — 928 pages have any churn at all and most of those in one or two
+    quarters, so the zeros carry nothing. Added and deleted are not repeated
+    here: the page recovers them from each row's total and net.
+    """
+    months = churn_months(inventory)
+    periods = churn_periods(months, months[-1])
+    position = {month: i for i, period in enumerate(periods)
+                for month in period["months"]}
+    churn = inventory.get("churn", {})
+    series = {}
+    for url, meta in inventory["pages"].items():
+        entry = churn.get(meta["src"])
+        if not entry:
+            continue
+        cells = collections.Counter()
+        for month, lines in entry["m"].items():
+            if lines and month in position:
+                cells[position[month]] += lines
+        if cells:
+            series[index[url]] = dict(cells)
+    return {"periods": [{"label": p["label"], "partial": p["partial"]}
+                        for p in periods],
+            "months": [p["months"] for p in periods],
+            "since": inventory["churnSince"], "series": series}
+
+
 def build_docs(months, inventory):
     newest = months[-1]
     current = load_docs_month(newest)
     previous = load_docs_month(months[-2]) if len(months) > 1 else {}
     i18n = load_i18n(newest)
     pages = inventory["pages"]
+    churn = inventory.get("churn", {})
 
     matched, stale = {}, {}
     for url, pv in current.items():
@@ -235,6 +329,11 @@ def build_docs(months, inventory):
         meta = pages[url]
         rest = url[len(URL_PREFIX):] or "index.html"
         paths.append(url)
+        # Churn is emitted as its total and its net, not as added and deleted:
+        # the pair is recoverable from them, and total-and-net is the pair the
+        # page reads out — how much of the file moved, and whether the page grew
+        # by it or was rewritten in place.
+        edits = churn.get(meta["src"]) or {"a": 0, "d": 0}
         rows.append([
             len(paths) - 1,
             matched.get(url, 0),
@@ -243,6 +342,9 @@ def build_docs(months, inventory):
             meta["edited"] or 0,
             i18n.get(rest, 0),
             1 if meta["generated"] else 0,
+            edits["a"] + edits["d"],
+            edits["a"] - edits["d"],
+            meta["lines"],
         ])
 
     # Monthly series per top-level section, for the trend chart.
@@ -281,6 +383,7 @@ def build_docs(months, inventory):
         "paths": paths,
         "rows": rows,
         "funnel": build_funnel(inventory),
+        "churn": build_churn(inventory, {url: i for i, url in enumerate(paths)}),
         "sections": {k: [v.get(m, 0) for m in months] for k, v in sections.items()},
         "unforwarded": unforwarded[:STALE_LIMIT],
         "unforwardedTotal": sum(r[1] for r in unforwarded),

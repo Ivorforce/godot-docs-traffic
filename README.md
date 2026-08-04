@@ -102,14 +102,20 @@ nothing sensitive ever entered history.
   hostname (nine requests); older months fetch the English subset in one.
 - `scripts/inventory.py` — clones `godot-docs` at the `stable` branch (which is
   what Read the Docs serves at `/en/stable/`, not `master`) and records each
-  page's word count, last-edit timestamp and toctree position, plus the date
-  every *removed* page left the tree and the redirects that forward the URLs
-  they left behind. Blob-filtered and
-  sparse (`*.rst` plus `_static/redirects.csv`), because the repository is
-  ~450 MB and almost all of it is screenshots; history is kept in full, since
-  last-edit dates are the entire point. The sparse spec is reapplied on every
-  run, so a cache built by an older revision picks up newly needed files rather
-  than silently missing them.
+  page's word count, last-edit timestamp, two-year line churn and toctree
+  position, plus the date every *removed* page left the tree and the redirects
+  that forward the URLs they left behind. Sparse (`*.rst` plus
+  `_static/redirects.csv`) so the working tree stays small, but **not**
+  blob-filtered: `git log --numstat` needs both sides of every diff, and on a
+  filtered clone it fetches blobs one request at a time — minutes over a year,
+  and it fails outright over more — a two-year walk fails too, so shortening the
+  window does not buy the filter back. Unfiltered the same walk takes seconds, at the cost of a ~740 MB clone that takes a minute or two
+  the first time. A cache left over from the filtered era is detected and
+  refetched once, rather than failing in a way that reads like a git bug.
+  History is kept in full either way, since last-edit dates are the entire
+  point. The sparse spec is reapplied on every run, so a cache built by an older
+  revision picks up newly needed files rather than silently missing them.
+  Nothing of this reaches GitHub: `.cache/` is gitignored.
 - `scripts/aggregate.py` — joins the two into `docs/data.js`, a single
   `window.DATA = {…}` assignment.
 - `docs/` — the page. Hand-written `index.html`, vanilla `app.js`, and a
@@ -247,7 +253,141 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   someone corrected a typo, not that the page was reviewed, and an old date is
   equally mute, since a page can go untouched because it is still correct. A
   scale that cannot be read in either direction was worth more as space than as
-  colour.
+  colour — and measuring the size of those commits instead is what **lines
+  changed** below does.
+- **lines changed** — source lines added plus deleted over the two years ending
+  at the recorded docs commit, from `git log --numstat -M`. Added and
+  deleted are kept apart, and the table shows the total and the **net**: a page
+  whose net is close to its total was written, one whose net is near zero was
+  rewritten at its existing length. Per section the same split separates growth
+  from rework — `tutorials/` added 13,473 lines against 3,623 deleted while
+  `getting_started/` added 225 against 222, the same activity by volume and a
+  different one in kind.
+
+  Lines rather than commits, because a commit count cannot tell a typo from a
+  rewrite. Over this window the most-committed hand-written page took 13
+  commits, while the largest single change was 1,822 lines in three of them; the
+  edit-count distribution runs 0–13 with 161 pages tied at one, and the
+  line-churn distribution spans three orders of magnitude with its top decile
+  holding 68% of all changed lines. That is the difference between a ranking
+  that is mostly ties and one that can be read.
+
+  `-M` is not optional, and it is applied twice. Within a commit it stops a move
+  reading as a whole text deleted and an identical text written by nobody. Across
+  the history, a second walk (`--diff-filter=R --name-status`) builds a map of
+  every rename — 846 of them — and each diff is carried forward along that chain
+  to the path its file ended up at, so a page that moved keeps one history rather
+  than two halves filed under two names. Without it a year of churn strands 1,094
+  lines on dead paths, and any longer window strands whole restructures.
+
+  **`_static/redirects.csv` cannot do this job**, though it looks as if it
+  should. It maps URLs rather than source paths, it is hand-maintained with
+  nothing checking it, and where a page was deleted rather than moved there is no
+  live page for its history to join to. Git recorded the moves itself.
+
+  **Two years is the window**, and it is set by what anyone can act on, not by
+  what git can reach. Four years was built and rejected: it spans roughly eight
+  minor releases, by which point a quiet stretch says nothing a maintainer can do
+  anything about, it doubles the columns, and — where a level has more children
+  than fit — ranking by four years of churn fills half the list with pages last
+  worked on in 2023. In the class reference only 13 of the top 25 rows are the
+  same list under the two windows.
+
+  Four years is where the *data* would stop, if the data were binding. Resolved
+  through the rename chain, the share of each year's changed lines landing on a
+  page still in the tree runs 95% (2022), 96%, 99%, 93%, 95% (2026), then falls
+  to 83% in 2021 and 66% in 2020 — the Godot 4 restructure having removed or
+  rewritten most of what came before. Two years sits well inside that, so the
+  join is not what limits the choice.
+
+  The grid follows the path bar like every other chart: its rows are the
+  children of the level you are on, so drilling into `tutorials/` replaces the
+  six sections with the twenty-six things inside it. That is the whole point of
+  it — `tutorials/xr/` took 1,823 lines in one quarter and
+  `tutorials/navigation/` has been silent since July with 15 of its 19 pages
+  untouched, and neither is visible from the top level. Rows are capped at the
+  25 most-edited and what the cap left out is printed underneath, because a
+  level can have a thousand children: inside the class reference, 612 pages
+  changed and 467 of 1,079 did not.
+
+  Columns are **calendar quarters**, eight of them, ending with the one the
+  docs commit falls in. Calendar-pinned rather than rolled back from the newest
+  month: both are redrawn every month, but rolling boundaries move under the
+  reader, so a figure taken from one run covers a different span in the next and
+  no two runs of the report can be compared. A closed quarter never changes
+  again. The price is that the newest column stops at the docs commit rather than
+  at its own end; it is marked `*` in the header and called out in the caption,
+  because read as a full column it looks like work falling off.
+
+  Months were the first cut and were too fine even over one year: a third of the
+  cells were empty, a single piece of work spread across two or three of them,
+  and an empty cell recorded the rhythm of when pull requests land rather than
+  anything about the page. Eleven columns still need the grid to abbreviate —
+  `Q3 24` for the headers, `24k` and `1.3k` for the figures, tighter padding and
+  a row label that ellipsises, with the exact number and full name on hover —
+  which brings it to 928 px at every level of the manual. A row read half at a
+  time answers nothing.
+
+  **Shading is churn against length, on a square root, scaled to what is on
+  screen.** Three separate decisions, each forced by a way the previous version
+  failed.
+
+  *Against length, not raw.* Shading the line counts made a table of size:
+  sections differ by three orders of magnitude and a row's own cells usually by
+  less than one, so the scale spent its range restating what the figures, the
+  ordering and the added column already said — 24,229 sat one shade off 7,851.
+  Dividing by the row's current length makes the colour comparable down a column
+  as well as across a row, and carries what the figures cannot: in 2023 H1
+  `getting_started/` changed 3,531 lines to `tutorials/`'s 24,229 and was the
+  harder worked of the two, 45% of its own length against 23%.
+
+  *Scaled to the darkest cell shown, not to a fixed 1x.* A section almost never
+  changes by its whole length in half a year — `tutorials/`'s busiest half turned
+  over 23% of it — so anchoring the top of the scale there spent three quarters
+  of the palette on nothing and pushed every section back into the palest end,
+  the same washout reached from the other side. The cost is that the colours
+  redraw when you change section; the figures do not.
+
+  *Square root, not linear or log.* The cells are heavy-tailed at every level of
+  the manual: measured across all 63 navigable levels, the darkest cell is a
+  median of 12.9x the median cell and up to 55x. Linear leaves the bulk at a
+  tenth of the range; a log ramp overcorrects and darkens the quiet cells until
+  absence stops reading, which is what the grid is for. Root sits between them —
+  `tutorials/` spans 23–53 across its eight columns where a fixed 1x anchor left
+  it inside 7–23.
+
+  Shading against each row's own busiest period was the other candidate and is
+  worse than any of these: it throws away every comparison between rows, so one
+  20-line edit to a dead section renders exactly as hot as `tutorials/` at its
+  peak. The divisor is the length **today**, not at the time — one divisor per
+  row leaves the row's profile untouched, where a per-period divisor would bend
+  the very shape the row exists to show.
+
+  Version cycles were the other candidate and they lose. Boundaries are
+  derivable from the repo (each `upgrading_to_godot_4.x.rst` is created near the
+  start of its cycle: 4.5 on 2025-09-13, 4.6 on 2026-01-20, 4.7 on 2026-06-18),
+  but the durations run 2.4, 4.2, 4.9 and 0.2 months, and a six-day newest column
+  reads as either nothing happening (raw) or a tenfold spike (per month) with
+  neither being true — the whole `community/` burst lands inside it. The column
+  set would also change shape whenever a new upgrade guide lands, and the
+  boundary itself is an inference about what that file's creation date means.
+
+  The class reference follows the same toggle as everywhere else rather than
+  being special-cased out, but its rows mean something different: those pages
+  sync in bulk from the engine's source, so their diffs are the size of whatever
+  the engine changed — 77% of all edited lines, with nobody having written a
+  sentence.
+
+  It measures activity, not quality and not need. A page nobody has touched
+  reads identically whether it is finished or forgotten, and nothing in this
+  data separates those two; the grid is a map of where work happened, not a list
+  of what to do next.
+
+  Its window ends at the docs commit, not at the end of the traffic window, so
+  the newest column is a part-period and can lag the newest traffic month by
+  weeks. The two spans are not aligned and are not comparable period for period —
+  and churn reaches back two years where traffic reaches back thirteen months,
+  so the older half of the grid has no traffic figure beside it at all.
 
 ## Runbook
 
@@ -258,7 +398,7 @@ it.
 ```sh
 python3 scripts/fetch.py probe          # what this instance supports
 python3 scripts/fetch.py backfill       # ~13 months, about a minute
-python3 scripts/inventory.py            # clones godot-docs, ~2 s after first run
+python3 scripts/inventory.py            # clones godot-docs (~740 MB), ~7 s after
 python3 scripts/aggregate.py            # writes docs/data.js
 open docs/index.html                    # no server needed
 ```

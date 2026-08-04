@@ -22,6 +22,7 @@ Output: data/inventory.json. Requires git; clones into .cache/ (gitignored).
 """
 
 import csv
+import datetime
 import io
 import json
 import re
@@ -54,6 +55,29 @@ NOT_A_PAGE = frozenset({"404.rst"})
 # reflect sync commits rather than anyone writing prose.
 GENERATED_DIRS = ("classes",)
 
+# The edit-churn window: eight calendar quarters, ending with the one HEAD falls
+# in. Two years is set by what anyone can act on rather than by what git can
+# tell us. Four years was tried and reaches back roughly eight minor releases,
+# by which point a quiet stretch says nothing a maintainer can do anything
+# about, and it costs twice the columns to read. It also changes which pages the
+# grid puts in front of you: where a level has more children than fit, ranking
+# by four years of churn fills half the list with pages last worked on in 2023 —
+# in the class reference, only 13 of the top 25 are the same list.
+#
+# Four years is where the data itself would stop, if the data were the binding
+# constraint: resolved through the rename chain, 93-99% of the lines changed
+# each year since 2022 land on a page that still exists, while 2021 drops to 83%
+# and 2020 to 66%, the Godot 4 restructure having removed or rewritten most of
+# what came before. Two years sits comfortably inside that.
+#
+# Calendar periods rather than a rolling window ending at HEAD, even though that
+# leaves the newest column partial. Both update every month; the difference is
+# that rolling boundaries move under the reader, so a figure noted from one run
+# covers a different span in the next and no two runs of the report can be
+# compared. A closed calendar quarter never changes again.
+CHURN_PERIOD_MONTHS = 3
+CHURN_PERIODS = 8
+
 # Every redirect the manual has is meant to be in this file; it is the source of
 # truth. Read the Docs applies only the first ~50 of them, and 404.rst applies
 # the rest in the browser, which is why they behave differently in our traffic
@@ -80,20 +104,38 @@ def run(args, cwd=None, check=True):
 def ensure_clone():
     """Clone or update the docs source at BRANCH.
 
-    Blob-filtered and sparse: the repository is ~450 MB, almost all of it
-    screenshots, and only .rst files and the redirects table are ever read.
-    History is kept in full — last-edit dates are the whole point of the
-    staleness signal, and a shallow clone would collapse every file onto the
+    Sparse but *not* blob-filtered, at about 740 MB on disk. The filter was the
+    obvious economy — the working tree only ever needs .rst files and the
+    redirects table — but it cannot serve line churn: `git log --numstat`
+    needs both sides of every diff, so on a filtered clone it fetches blobs one
+    request at a time, taking minutes over a year and failing outright over
+    more. Unfiltered, the same walk over four years takes five seconds. Nothing
+    of this leaves the machine that runs the pipeline: .cache/ is gitignored.
+
+    History is kept in full either way — last-edit dates are the whole point of
+    the staleness signal, and a shallow clone would collapse every file onto the
     clone date.
     """
     if not (CACHE / ".git").exists():
         CACHE.parent.mkdir(parents=True, exist_ok=True)
-        print(f"cloning {REPO} -> {CACHE} (blob-filtered)", file=sys.stderr)
-        run(["git", "clone", "--filter=blob:none", "--no-checkout",
-             "--branch", BRANCH, REPO, str(CACHE)])
+        print(f"cloning {REPO} -> {CACHE} (~740 MB, a minute or two)",
+              file=sys.stderr)
+        run(["git", "clone", "--no-checkout", "--branch", BRANCH, REPO,
+             str(CACHE)])
     else:
-        print(f"updating {CACHE}", file=sys.stderr)
-        run(["git", "fetch", "--filter=blob:none", "origin", BRANCH], cwd=CACHE)
+        # A cache built by an earlier revision is blob-filtered and cannot serve
+        # the churn walk. Refilling it costs one long fetch, once, rather than
+        # leaving the report to fail in a way that reads like a git bug.
+        if run(["git", "config", "--get", "remote.origin.partialclonefilter"],
+               cwd=CACHE, check=False).strip():
+            print(f"{CACHE} is blob-filtered and cannot serve line churn; "
+                  f"refetching in full (~740 MB, once)", file=sys.stderr)
+            for key in ("remote.origin.partialclonefilter", "remote.origin.promisor"):
+                run(["git", "config", "--unset", key], cwd=CACHE, check=False)
+            run(["git", "fetch", "--refetch", "origin", BRANCH], cwd=CACHE)
+        else:
+            print(f"updating {CACHE}", file=sys.stderr)
+            run(["git", "fetch", "origin", BRANCH], cwd=CACHE)
     # Set on every run, not only at clone time, so a cache made by an earlier
     # version of this script picks up newly needed paths instead of silently
     # missing them.
@@ -282,6 +324,138 @@ def removals():
          "--no-renames"], cwd=CACHE))
 
 
+# With -M git writes a rename as "old => new", compressing a shared prefix or
+# suffix into "dir/{old => new}/file.rst". Both forms have to resolve to the new
+# path, or a moved page's churn lands under a path that no longer exists.
+RENAME_BRACED = re.compile(r"\{([^{}]*) => ([^{}]*)\}")
+
+
+def numstat_path(field):
+    """The post-change path from the path column of a --numstat line."""
+    if "=>" not in field:
+        return field
+    if "{" in field:
+        field = RENAME_BRACED.sub(lambda m: m.group(2), field)
+    else:
+        field = field.split(" => ")[-1]
+    # A rename into or out of a directory leaves one brace side empty, and with
+    # it a doubled or trailing separator.
+    return re.sub("/{2,}", "/", field.strip()).strip("/")
+
+
+def churn_start(head_ts):
+    """First day of the earliest calendar period in the churn window.
+
+    Anchored on HEAD rather than on today, so the window does not drift between
+    runs against the same clone, and snapped to a period boundary so the oldest
+    column covers its whole span instead of starting mid-period. Only the newest
+    column is ever partial, and it ends at HEAD rather than at the end of its
+    period.
+    """
+    end = datetime.datetime.fromtimestamp(head_ts, datetime.timezone.utc).date()
+    period = (end.year * 12 + (end.month - 1)) // CHURN_PERIOD_MONTHS
+    total = (period - (CHURN_PERIODS - 1)) * CHURN_PERIOD_MONTHS
+    return datetime.date(total // 12, total % 12 + 1, 1).isoformat()
+
+
+def rename_map():
+    """{source path: the path it was renamed to}, over the whole history.
+
+    Churn is recorded against the path a file had at the time, so a page that
+    moved has its history split between a path that no longer exists and the one
+    it ended up at — and only the second half reaches the report. Over one year
+    that stranded 1,094 lines; over four it is the difference between a usable
+    window and a misleading one, the manual having moved whole directories.
+
+    `_static/redirects.csv` cannot do this job, though it looks as if it should.
+    It maps URLs rather than source paths, it is hand-maintained with nothing
+    checking it (see REDIRECTS above), and where a page was deleted rather than
+    moved there is no live page for its history to join to. Git recorded the
+    moves itself, and its record is what this reads.
+    """
+    log = run(["git", "log", "--diff-filter=R", "--name-status", "-M",
+               "--format=", "--", "*.rst"], cwd=CACHE)
+    pairs = []
+    for line in log.splitlines():
+        # "R096\told\tnew"; the score after R is the similarity git measured.
+        if not line.startswith("R"):
+            continue
+        parts = line.split("\t")
+        if len(parts) == 3 and parts[1].endswith(".rst") and parts[2].endswith(".rst"):
+            pairs.append((parts[1], parts[2]))
+    # git log runs newest-first. Assigning oldest-first leaves the newest rename
+    # of any path as the one stored, which is where following it forward ends up
+    # anyway; `follow_renames` walks the rest of the chain.
+    out = {}
+    for old, new in reversed(pairs):
+        out[old] = new
+    return out
+
+
+def follow_renames(path, renames):
+    """Where a source path ended up, following renames forward."""
+    seen = set()
+    while path in renames and path not in seen:
+        seen.add(path)   # a path renamed back onto itself would not terminate
+        path = renames[path]
+    return path
+
+
+def churn_since(since, renames):
+    """Lines changed per source file since `since`, an ISO date.
+
+    {path: {"a": added, "d": deleted, "e": edits, "m": {"YYYY-MM": lines}}}
+
+    Lines rather than commits, because a commit count cannot separate a typo
+    from a rewrite: over the last year the busiest hand-written page took 13
+    commits, while the single largest change was 1,822 lines in 3 of them. Added
+    and deleted are kept apart because their ratio is the useful second signal —
+    a section adding 13,641 lines against 3,679 deleted is being extended, one
+    at 226 against 223 is being reworked in place, and a total alone reads the
+    same either way.
+
+    Rename detection is on twice over. `-M` keeps a move from reading as an
+    entire text deleted and an identical text written by nobody, and `renames`
+    then carries each diff forward to the path its file ended up at, so a page
+    that moved keeps one history instead of two halves under two names.
+
+    This is the only walk that needs file contents, which is why the clone above
+    is not blob-filtered.
+    """
+    return parse_churn(run(["git", "log", f"--since={since}", "--numstat", "-M",
+                            "--format=%x00%cI", "--", "*.rst"], cwd=CACHE),
+                       renames)
+
+
+def parse_churn(log, renames=None):
+    out, month = {}, None
+    for line in log.splitlines():
+        # A commit header, marked with a NUL no path can contain. Blank-line
+        # separators are not reliable here for the same reason as in
+        # last_edits(): git emits them inside a commit as well as between two.
+        if line.startswith("\x00"):
+            month = line[1:8]
+            continue
+        parts = line.split("\t")
+        if len(parts) != 3 or month is None:
+            continue
+        added, deleted, path = parts
+        if added == "-" or deleted == "-":
+            continue  # a binary diff; no .rst is one, but the format allows it
+        path = follow_renames(numstat_path(path), renames or {})
+        if not path.endswith(".rst"):
+            continue
+        added, deleted = int(added), int(deleted)
+        if not added and not deleted:
+            continue  # a pure rename: the page moved, its text did not change
+        entry = out.setdefault(path, {"a": 0, "d": 0, "e": 0, "m": {}})
+        entry["a"] += added
+        entry["d"] += deleted
+        entry["e"] += 1
+        entry["m"][month] = entry["m"].get(month, 0) + added + deleted
+    return out
+
+
 def parse_redirects(text):
     """Ordered [(source, destination)] from _static/redirects.csv.
 
@@ -315,8 +489,14 @@ def parse_removals(log):
 
 def main():
     head = ensure_clone()
+    head_ts = int(run(["git", "log", "-1", "--format=%ct"], cwd=CACHE).strip())
     stamps = last_edits()
     removed = removals()
+    since = churn_start(head_ts)
+    renames = rename_map()
+    print(f"reading line churn since {since} "
+          f"({len(renames):,} renames followed)", file=sys.stderr)
+    churn = churn_since(since, renames)
 
     pages, toctrees = {}, {}
     for path in sorted(CACHE.rglob("*.rst")):
@@ -331,6 +511,10 @@ def main():
         pages[url_for(rel)] = {
             "src": rel,
             "words": word_count(text),
+            # Raw source lines, which is what churn is counted in — the churn
+            # grid shades a period against the length of the thing it changed,
+            # and words would put a count of prose under a count of diff lines.
+            "lines": len(text.splitlines()),
             "edited": stamps.get(rel),
             "generated": top in GENERATED_DIRS,
         }
@@ -357,16 +541,24 @@ def main():
         "commit": head,
         "urlPrefix": URL_PREFIX,
         "pages": pages,
+        "churn": churn,
+        "churnSince": since,
+        "churnHead": head_ts,
         "redirects": redirects,
         "removed": gone,
         "toctrees": toctrees,
     }, sort_keys=True, separators=(",", ":")) + "\n")
 
+    live_churn = {src: c for src, c in churn.items() if src in live}
+    lines = sum(c["a"] + c["d"] for c in live_churn.values())
     print(f"{len(pages):,} pages ({generated:,} generated, "
           f"{len(pages) - generated:,} hand-written), "
           f"{len(toctrees):,} toctrees, {missing} without a git date, "
           f"{len(gone):,} removed pages remembered, "
           f"{len(redirects):,} redirects -> {OUT}")
+    print(f"churn since {since}: {lines:,} lines across "
+          f"{len(live_churn):,} pages still in the tree "
+          f"({len(churn) - len(live_churn):,} on paths since removed)")
 
 
 if __name__ == "__main__":

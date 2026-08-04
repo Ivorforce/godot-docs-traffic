@@ -12,6 +12,7 @@ them still holds — so the pipeline would notice if the instance were fixed.
     python3 -m unittest discover tests
 """
 
+import datetime
 import json
 import sys
 import unittest
@@ -219,6 +220,193 @@ class TestInventoryParsing(unittest.TestCase):
                          ["about/faq.rst", "classes/index.rst"])
 
 
+class TestChurnParsing(unittest.TestCase):
+    """Line churn from `git log --numstat -M`.
+
+    Rename handling is the part with teeth: the manual moved a directory during
+    the window this report covers, and a rename read as a path of its own puts a
+    live page's history under a path that no longer exists.
+    """
+
+    def test_rename_forms_resolve_to_the_new_path(self):
+        self.assertEqual(inventory.numstat_path("tutorials/a.rst"),
+                         "tutorials/a.rst")
+        self.assertEqual(inventory.numstat_path("old.rst => new.rst"), "new.rst")
+        self.assertEqual(
+            inventory.numstat_path("tutorials/{cpp => engine_api}/core.rst"),
+            "tutorials/engine_api/core.rst")
+
+    def test_rename_out_of_a_directory_leaves_no_empty_segment(self):
+        """One brace side is empty when a file moves to or from the top level,
+        which leaves a doubled separator in the path git prints."""
+        self.assertEqual(inventory.numstat_path("{tutorials/cpp => }/core.rst"),
+                         "core.rst")
+        self.assertEqual(inventory.numstat_path("{ => engine_details}/api.rst"),
+                         "engine_details/api.rst")
+
+    def log(self, *commits):
+        """A --numstat log in the shape parse_churn reads: each commit a NUL
+        marker line with its date, then one line per file."""
+        out = []
+        for date, files in commits:
+            out.append("\x00" + date)
+            out.append("")
+            out.extend(files)
+        return "\n".join(out) + "\n"
+
+    def test_sums_added_and_deleted_per_month(self):
+        churn = inventory.parse_churn(self.log(
+            ("2026-06-24T10:00:00+02:00", ["10\t2\ttutorials/a.rst"]),
+            ("2026-06-02T10:00:00+02:00", ["1\t0\ttutorials/a.rst"]),
+            ("2026-05-30T10:00:00+02:00", ["4\t40\ttutorials/a.rst"]),
+        ))
+        self.assertEqual(churn["tutorials/a.rst"]["a"], 15)
+        self.assertEqual(churn["tutorials/a.rst"]["d"], 42)
+        self.assertEqual(churn["tutorials/a.rst"]["e"], 3)
+        self.assertEqual(churn["tutorials/a.rst"]["m"],
+                         {"2026-06": 13, "2026-05": 44})
+
+    def test_pure_rename_is_not_an_edit(self):
+        """A moved page whose text did not change contributes no churn: -M
+        reports it as 0/0, and counting it would make a directory move look
+        like a month of writing."""
+        churn = inventory.parse_churn(self.log(
+            ("2026-06-24T10:00:00+02:00", ["0\t0\t{old => new}/a.rst"]),
+        ))
+        self.assertEqual(churn, {})
+
+    def test_rename_with_edits_lands_on_the_new_path(self):
+        churn = inventory.parse_churn(self.log(
+            ("2026-06-24T10:00:00+02:00", ["6\t1\t{old => new}/a.rst"]),
+        ))
+        self.assertEqual(list(churn), ["new/a.rst"])
+        self.assertEqual(churn["new/a.rst"]["a"], 6)
+
+    def test_binary_and_non_rst_lines_are_skipped(self):
+        churn = inventory.parse_churn(self.log(
+            ("2026-06-24T10:00:00+02:00",
+             ["-\t-\timg/shot.png", "3\t1\tconf.py", "2\t2\ta.rst"]),
+        ))
+        self.assertEqual(list(churn), ["a.rst"])
+
+    def test_window_is_anchored_on_head_not_today(self):
+        """Re-running against an unchanged clone must reproduce the same window,
+        so the start is derived from HEAD's commit date."""
+        head = int(datetime.datetime(2026, 6, 24, 12, tzinfo=datetime.timezone.utc)
+                   .timestamp())
+        self.assertEqual(inventory.churn_start(head), "2024-07-01")
+
+    def test_window_snaps_to_a_period_boundary(self):
+        """Whichever month HEAD lands in, the window opens on a quarter start,
+        so only the newest column is ever a part-period."""
+        for day in (1, 30):
+            for month in (4, 5, 6):
+                head = int(datetime.datetime(2026, month, day,
+                                             tzinfo=datetime.timezone.utc).timestamp())
+                self.assertEqual(inventory.churn_start(head), "2024-07-01",
+                                 f"2026-{month:02d}-{day:02d}")
+        # The first month of a quarter opens the window a quarter later.
+        head = int(datetime.datetime(2026, 7, 1, tzinfo=datetime.timezone.utc)
+                   .timestamp())
+        self.assertEqual(inventory.churn_start(head), "2024-10-01")
+
+
+class TestChurnRollup(unittest.TestCase):
+    """build_churn: the section grid the page draws."""
+
+    def inventory(self):
+        return {
+            "churnSince": "2026-04-01",
+            "churnHead": int(datetime.datetime(
+                2026, 6, 10, tzinfo=datetime.timezone.utc).timestamp()),
+            "pages": {
+                "/en/stable/tutorials/a.html":
+                    {"src": "tutorials/a.rst", "words": 10, "edited": 1,
+                     "generated": False},
+                "/en/stable/tutorials/2d/b.html":
+                    {"src": "tutorials/2d/b.rst", "words": 10, "edited": 1,
+                     "generated": False},
+                "/en/stable/":
+                    {"src": "index.rst", "words": 10, "edited": 1,
+                     "generated": False},
+                "/en/stable/classes/class_node.html":
+                    {"src": "classes/class_node.rst", "words": 10, "edited": 1,
+                     "generated": True},
+            },
+            "churn": {
+                "tutorials/a.rst": {"a": 30, "d": 5, "e": 2,
+                                    "m": {"2026-04": 20, "2026-06": 15}},
+                "tutorials/2d/b.rst": {"a": 4, "d": 4, "e": 1,
+                                       "m": {"2026-06": 8}},
+                "index.rst": {"a": 1, "d": 0, "e": 1, "m": {"2026-05": 1}},
+                "classes/class_node.rst": {"a": 900, "d": 900, "e": 9,
+                                           "m": {"2026-05": 1800}},
+            },
+        }
+
+    def index(self, inv):
+        """Row indices as build_docs assigns them: pages in URL order."""
+        return {url: i for i, url in enumerate(sorted(inv["pages"]))}
+
+    def build(self):
+        inv = self.inventory()
+        return aggregate.build_churn(inv, self.index(inv)), inv
+
+    def test_months_cover_the_window_including_silent_ones(self):
+        self.assertEqual(aggregate.churn_months(self.inventory()),
+                         ["2026-04", "2026-05", "2026-06"])
+
+    def test_months_fold_into_one_period(self):
+        """The fixture's window is one calendar quarter, so all of it is one
+        column and a page edited in two of its months shows as their sum."""
+        out, inv = self.build()
+        row = self.index(inv)["/en/stable/tutorials/a.html"]
+        self.assertEqual([p["label"] for p in out["periods"]], ["Q2 26"])
+        self.assertEqual(out["series"][row], {0: 35})
+
+    def test_only_the_newest_period_is_marked_partial(self):
+        """It ends at the docs commit rather than at its own end. Read as a full
+        column it looks like work falling off."""
+        out, _ = self.build()
+        self.assertEqual([p["partial"] for p in out["periods"]], [True])
+
+    def test_periods_with_no_edits_are_absent_rather_than_zero(self):
+        out, inv = self.build()
+        row = self.index(inv)["/en/stable/tutorials/2d/b.html"]
+        self.assertEqual(out["series"][row], {0: 8})
+
+    def test_pages_with_no_churn_get_no_entry(self):
+        inv = self.inventory()
+        inv["pages"]["/en/stable/quiet.html"] = {
+            "src": "quiet.rst", "words": 10, "edited": 1, "generated": False}
+        out = aggregate.build_churn(inv, self.index(inv))
+        self.assertNotIn(self.index(inv)["/en/stable/quiet.html"], out["series"])
+
+    def test_generated_pages_keep_their_series(self):
+        """The grid follows the path bar's class-reference choice like every
+        other chart, so the data has to be there when it is switched on."""
+        out, inv = self.build()
+        row = self.index(inv)["/en/stable/classes/class_node.html"]
+        self.assertEqual(out["series"][row], {0: 1800})
+
+    def test_periods_break_on_the_calendar_not_on_the_window(self):
+        """Boundaries that moved with the window would give the same column a
+        different span on every run, and no two runs could be compared."""
+        months = ["2025-05", "2025-06", "2025-07", "2025-08"]
+        periods = aggregate.churn_periods(months, months[-1])
+        self.assertEqual([p["months"] for p in periods],
+                         [["2025-05", "2025-06"], ["2025-07", "2025-08"]])
+        self.assertEqual([p["label"] for p in periods], ["Q2 25", "Q3 25"])
+        self.assertEqual([p["partial"] for p in periods], [False, True])
+
+    def test_period_labels_name_the_quarter(self):
+        """Short, because sixteen of them share the width of the page."""
+        self.assertEqual(
+            aggregate.period_label(["2025-07", "2025-08", "2025-09"]), "Q3 25")
+        self.assertEqual(aggregate.period_label(["2026-01"]), "Q1 26")
+        self.assertEqual(aggregate.period_label(["2022-10", "2022-11"]), "Q4 22")
+
+
 SITE_DAILY = ROOT / "data" / "raw" / "site-daily.ndjson"
 
 
@@ -335,11 +523,59 @@ class TestGeneratedPayload(unittest.TestCase):
             for term in ("visitor", "bounce", "duration", "session"):
                 self.assertNotIn(term, low, f"field {key!r} carries {term} data")
 
-    def test_row_schema_is_the_documented_seven_columns(self):
+    def test_row_schema_is_the_documented_ten_columns(self):
         """app.js indexes rows positionally; a widened row silently shifts every
         column it reads."""
         for row in self.docs["rows"]:
-            self.assertEqual(len(row), 7)
+            self.assertEqual(len(row), 10)
+
+    def test_every_page_has_a_length_to_shade_against(self):
+        """The churn grid divides by it. A zero would put every edited period of
+        that row at full intensity."""
+        for row in self.docs["rows"]:
+            self.assertGreater(row[9], 0, self.docs["paths"][row[0]])
+
+    def test_row_churn_is_a_total_and_a_net(self):
+        """The page recovers added and deleted from the pair, so the net can
+        never exceed the total and the two must share a parity."""
+        for row in self.docs["rows"]:
+            total, net = row[7], row[8]
+            self.assertGreaterEqual(total, 0)
+            self.assertLessEqual(abs(net), total)
+            self.assertEqual((total - net) % 2, 0)
+
+    def test_churn_series_sum_to_each_row_total(self):
+        """The grid rolls the monthly series up itself and the table prints the
+        row total. Two numbers for the same thing have to agree."""
+        churn = self.docs["churn"]
+        rows = self.docs["rows"]
+        for index, series in churn["series"].items():
+            self.assertEqual(sum(series.values()), rows[int(index)][7])
+
+    def test_churn_periods_are_addressable(self):
+        """Quarters are referenced by position, so a cell outside the window
+        would land on the wrong column or on nothing."""
+        span = range(len(self.docs["churn"]["periods"]))
+        for series in self.docs["churn"]["series"].values():
+            for period in series:
+                self.assertIn(int(period), span)
+
+    def test_churn_periods_cover_the_window_once_each(self):
+        """Every month of the window belongs to exactly one column, or the grid
+        double-counts a burst or loses one."""
+        churn = self.docs["churn"]
+        self.assertEqual(len(churn["periods"]), len(churn["months"]))
+        flat = [month for group in churn["months"] for month in group]
+        self.assertEqual(len(flat), len(set(flat)))
+        self.assertEqual(flat, sorted(flat))
+
+    def test_every_page_with_churn_has_a_series(self):
+        """A row carrying a total but no series is a page the grid would draw as
+        never edited while the table beside it says otherwise."""
+        series = self.docs["churn"]["series"]
+        for i, row in enumerate(self.docs["rows"]):
+            self.assertEqual(row[7] > 0, str(i) in series,
+                             self.docs["paths"][row[0]])
 
     def test_sections_series_match_month_count(self):
         for name, series in self.docs["sections"].items():

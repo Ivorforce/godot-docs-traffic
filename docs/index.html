@@ -50,6 +50,22 @@
   th.sorted::after { content: "\00A0▾"; color: #57606a; }
   th.sorted.asc::after { content: "\00A0▴"; }
   #stale-table th { cursor: default; }
+  /* The churn grid is wider than the page on a phone and must scroll on its
+     own rather than widen the document. */
+  .grid-wrap { overflow-x: auto; margin-top: .5rem; }
+  #churn-grid { width: auto; min-width: 100%; font-size: .8rem; }
+  /* Tighter than the page's other tables, and the reason the figures are
+     abbreviated: eleven columns have to share the page's width, and a row read
+     half at a time is the one thing this table must not be. */
+  #churn-grid th, #churn-grid td { padding: .25rem .35rem; }
+  #churn-grid th { cursor: default; }
+  #churn-grid th[scope="row"] {
+    text-align: left; background: none; font-weight: 600;
+    max-width: 6.5rem; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #churn-grid td.cell { min-width: 2.4rem; }
+  #churn-grid td.empty { color: #adb5bd; }
   td.path { font-size: .85rem; word-break: break-word; }
   .table-wrap { max-height: 30rem; overflow-y: auto; margin-top: .5rem; }
   .table-wrap thead th { position: sticky; top: 0; }
@@ -211,12 +227,73 @@ they came for, so this is not a funnel with a single entrance — a step drawing
 more than the one before it means people entered there, not that readers
 multiplied. The shape between neighbouring steps is the useful part.</p>
 
+<h2>Where the docs are being written</h2>
+<div class="grid-wrap"><table id="churn-grid"></table></div>
+<p class="caption" id="churn-note"></p>
+<p class="caption">Lines changed by quarter over two years
+(<span class="churn-window">…</span>) — added and deleted counted together, from
+the git history of the docs source. Figures are rounded (<code>24k</code>,
+<code>1.3k</code>); hover any cell for the exact one. Rows follow the path bar,
+the same as the charts above: at the top level they are the parts of the manual,
+and drilling into one replaces them with what is inside it, so a section's quiet
+corners can be found the same way its busy ones can. This is a record of where
+effort went, not a ranking: it says what was worked on, and cannot say what
+should have been. Empty cells are the reason it is here — a part of the docs
+untouched for a quarter is worth knowing about, and it is the one thing here the
+pull request feed does not show.</p>
+<p class="caption">The figures are lines; the <strong>shading</strong> is those
+lines measured against how long that row is now, so it says something the figures
+do not. In the first half of 2023 <code>getting_started/</code> changed 3,531
+lines against <code>tutorials/</code>'s 24,229 and was the harder worked of the
+two, turning over 45% of its own length where tutorials turned over 23% of its.
+Read the colour in both directions; read the figures for how much work that
+actually was.</p>
+<p class="caption">The darkest cell is the most intensively changed one
+<em>currently shown</em>, not a fixed mark, and the ramp is a square root.
+Sections almost never change by their whole length in a quarter, and the cells
+are heavily lopsided at every level — the busiest is typically thirteen times a
+middling one — so a scale pinned to either end left nearly every cell in the
+palest tenth of it. Because the top of the scale moves with what is on screen,
+the colours redraw when you change section; the numbers do not. Dividing by the
+length today rather than the length at the time is deliberate: one divisor for a
+whole row leaves its profile intact, where a moving one would bend the shape the
+row exists to show.</p>
+<p class="caption">Columns are calendar quarters, not the last eight counted
+back from today, so a closed column never changes again and two versions of this
+report can be compared. The price is the last column, marked <strong>*</strong>:
+it stops at the docs commit rather than at the end of its quarter, so it is short
+by however much of the period is still to come and a fall at the right edge may
+be nothing but that. Quarters rather than months because months were too fine —
+a third of the cells were empty and one piece of work spread across two or three
+of them, so an empty cell recorded the rhythm of when pull requests land rather
+than anything about the page.</p>
+<p class="caption">Measured in lines rather than commits, because a commit counts
+a typo fix and a rewrite alike: the most-committed page of the last year took 13
+commits, while the single largest change was 1,822 lines in three of them.
+Renames are followed to where a file ended up, so a page that moved keeps one
+history instead of two halves filed under two names — 846 of them across this
+manual's history, without which the 2022 restructure would read as whole sections
+deleting themselves into others. Two years is a choice about what anyone can
+act on rather than a limit of the data: four years was tried, reaches back some
+eight minor releases, and where a level has more rows than fit it filled half the
+list with pages last worked on in 2023.</p>
+<p class="caption">The <em>added</em> and <em>deleted</em> columns are the same
+work seen a second way. A section adding several times what it deletes is
+growing new material; one where the two are close was reworked at its existing
+length, which is a different activity and often a more careful one. The class
+reference follows the same choice as everywhere else on this page — left out
+until the path bar's first entry puts it back — but read its rows differently
+when it is in: those pages are generated from the engine's source and synced in
+bulk, so their diffs are the size of whatever the engine changed rather than of
+anything anyone wrote. They are three quarters of all edited lines.</p>
+
 <h2>Pages <span id="table-scope"></span></h2>
 <div class="table-wrap">
   <table id="pages-table">
     <thead><tr>
       <th>page</th><th>pageviews</th><th>vs prev. month</th>
-      <th>translation reads</th><th>words</th><th>last edit</th>
+      <th>translation reads</th><th>words</th><th>lines changed</th>
+      <th>net</th><th>last edit</th>
     </tr></thead>
     <tbody></tbody>
   </table>
@@ -226,7 +303,11 @@ the filter box above to narrow by path. <em>Translation reads</em> counts the
 same page across all non-English languages, so a page can be far more read than
 its English column suggests. <em>Words</em> approximates the prose in the source
 file — notes and warnings counted, code blocks and table markup not — for
-comparing pages against each other rather than as a typographic measure.</p>
+comparing pages against each other rather than as a typographic measure.
+<em>Lines changed</em> and <em>net</em> are this page's share of the churn above,
+over <span class="churn-window">…</span>: how many source
+lines moved, and how many the page gained by it. A net near the total is a page
+that was written; a net near zero is a page that was rewritten.</p>
 
 <h2>Removed pages with no redirect</h2>
 <table id="stale-table">
@@ -299,6 +380,20 @@ intent to download, not a completed one.</p>
         sweeps. An old date is no clearer, since a page can be untouched because
         it is still correct. The column is a lookup for a single page, which is
         why nothing on this page is sorted, coloured or ranked by it.</li>
+    <li><strong>Lines changed is a measure of activity, not of quality or of
+        need.</strong> It counts what was edited, so a page nobody has touched
+        reads the same whether it is correct and finished or forgotten — and
+        nothing in this data separates those two. It also has no view on whether
+        the edit was an improvement. Read it as a map of where work happened,
+        never as a list of what to work on next.</li>
+    <li>The churn window ends at the docs commit shown at the top of the page,
+        which is not the end of the traffic window: the source tree is read when
+        the inventory runs and the traffic when the fetch does, so the newest
+        churn column is a part-period and may lag the newest traffic month by
+        weeks. The two spans are not aligned and should not be compared period
+        for period. Churn also reaches back two years where traffic reaches
+        back thirteen months, so the older half of the grid has no traffic
+        figure beside it at all.</li>
     <li>The class reference is generated from the engine's source and synced in
         bulk, so its git dates record sync commits rather than anyone writing.
         For that reason the report opens on the manual without it; the first

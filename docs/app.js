@@ -14,8 +14,15 @@ const D = window.DATA;
 const DOCS = D.docs;
 const PREFIX = DOCS.prefix;
 
-// Row layout emitted by scripts/aggregate.py.
-const PATH = 0, PV = 1, PREV = 2, WORDS = 3, EDITED = 4, I18N = 5, GENERATED = 6;
+// Row layout emitted by scripts/aggregate.py. LINES is lines added plus lines
+// deleted over the churn window; NET is added minus deleted, so a page whose
+// lines and net are equal only grew, and one whose net is near zero was
+// rewritten at its own length.
+const PATH = 0, PV = 1, PREV = 2, WORDS = 3, EDITED = 4, I18N = 5, GENERATED = 6,
+      LINES = 7, NET = 8, LENGTH = 9;
+
+// The per-page monthly series behind the churn grid, and the months it covers.
+const CHURN = DOCS.churn;
 
 const state = { section: "", classes: false, filter: "", scatter: "trend",
                 footprint: "words" };
@@ -130,7 +137,10 @@ function filteredRows() {
 
 /* Children of the current section: sub-directories aggregated, pages sitting
    directly at this level kept as themselves. Both are drawn — a level whose
-   traffic is mostly its own index page should look that way. */
+   traffic is mostly its own index page should look that way.
+
+   `periods` is the churn series summed the same way, so the grid can follow the
+   path bar off the same walk the section bars use. */
 function childrenOf(section) {
   const base = section ? section + "/" : "";
   const out = new Map();
@@ -143,10 +153,17 @@ function childrenOf(section) {
     // bars a tenth of their total while leaving the word bars intact.
     const cut = rest ? rest.indexOf("/") : -1;
     const key = !rest ? "(landing page)" : cut === -1 ? rest : rest.slice(0, cut);
-    const entry = out.get(key) || { key, pv: 0, pages: 0, words: 0, dir: cut !== -1 };
+    const entry = out.get(key) ||
+      { key, pv: 0, pages: 0, words: 0, length: 0, churn: 0, net: 0,
+        periods: CHURN.periods.map(() => 0), dir: cut !== -1 };
     entry.pv += row[PV];
     entry.pages += 1;
     entry.words += row[WORDS];
+    entry.length += row[LENGTH];
+    entry.churn += row[LINES];
+    entry.net += row[NET];
+    const series = CHURN.series[row[PATH]];
+    for (const period in series) entry.periods[period] += series[period];
     entry.dir = entry.dir || cut !== -1;
     out.set(key, entry);
   }
@@ -169,6 +186,17 @@ function pct(v, total) {
 function signed(v) {
   const p = Math.round(100 * v);
   return (p > 0 ? "+" : "") + p + "%";
+}
+
+/* 24,229 -> "24k". Only the churn grid uses this: eleven columns of thousands
+   separators do not fit the page, and the grid is read for shape and order of
+   magnitude, with the exact figure a hover away and the table below carrying it
+   in full. One decimal below 10k, where the difference between 1,279 and 4,926
+   is worth a character. */
+function compact(v) {
+  if (v < 1000) return String(v);
+  if (v < 10000) return (v / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  return Math.round(v / 1000) + "k";
 }
 
 function ageLabel(ts) {
@@ -745,6 +773,10 @@ const COLUMNS = [
   { key: "delta", get: (r) => (r[PREV] ? (r[PV] - r[PREV]) / r[PREV] : null) },
   { key: I18N, get: (r) => r[I18N], fmt: num },
   { key: WORDS, get: (r) => r[WORDS], fmt: num },
+  { key: LINES, get: (r) => r[LINES], fmt: num },
+  // Signed, because the sign is the whole reading: +900 against 900 changed
+  // lines is a page that was written, 0 against 900 is one that was replaced.
+  { key: NET, get: (r) => r[NET], fmt: (v) => (v > 0 ? "+" : "") + num(v) },
   { key: EDITED, get: (r) => r[EDITED], fmt: (v) => (v ? ageLabel(v) : "—") },
 ];
 
@@ -800,6 +832,139 @@ function renderTable() {
     th.classList.toggle("asc", i === sortState.col && sortState.asc);
   });
   document.getElementById("table-scope").textContent = `— ${num(rows.length)}`;
+}
+
+/* Lines changed per month for the children of the current section, drawn as a
+   table rather than a canvas.
+
+   Most of what this grid has to say is where the counts stop — something silent
+   for a quarter, something that woke up last month. That makes the numbers the
+   content, so they are printed as numbers and the tint sits over them as a
+   second cue rather than the only one, which also keeps the empty cells legible
+   where a scale bottoming out at white would not.
+
+   Rows are capped: a level with a thousand children is the class reference, and
+   nobody reads a thousand-row grid. What the cap left out is said underneath
+   rather than silently dropped. */
+const CHURN_ROWS = 25;
+
+function renderChurn() {
+  const children = childrenOf(state.section);
+  const edited = children.filter((c) => c.churn > 0)
+                         .sort((a, b) => b.churn - a.churn);
+  const shown = edited.slice(0, CHURN_ROWS);
+  // Shading runs to the most intensively changed cell on screen rather than to
+  // a fixed "changed by its whole length". Sections almost never reach that
+  // ceiling — the busiest quarter tutorials/ ever had turned over 17% of it —
+  // so anchoring there spent the top three quarters of the scale on nothing and
+  // squeezed every section into the palest end, which is the same washout as
+  // shading the raw counts, arrived at from the other side.
+  const top = Math.max(...shown.map(
+    (c) => Math.max(...c.periods) / Math.max(c.length, 1)), 1e-9);
+  const cell = (tag, text) => {
+    const node = document.createElement(tag);
+    node.textContent = text;
+    return node;
+  };
+
+  const head = document.createElement("tr");
+  head.appendChild(cell("th", "page or section"));
+  for (const period of CHURN.periods) {
+    // The newest column stops at the docs commit rather than at the end of its
+    // quarter, so it is short by however much of the period is still to come.
+    // Marked in the header, because read as a full column it looks like work
+    // falling off.
+    const th = cell("th", period.label + (period.partial ? "*" : ""));
+    if (period.partial) th.title = "part-period: ends at the docs commit";
+    head.appendChild(th);
+  }
+  head.append(cell("th", "added"), cell("th", "deleted"));
+
+  const body = document.createElement("tbody");
+  for (const child of shown) {
+    const name = child.key + (child.dir ? "/" : "");
+    // Shaded against the row's own current length, so a full cell means "this
+    // period changed as many lines as the thing is long" — rewritten, or
+    // written. Anything past that saturates.
+    //
+    // A scale shared across raw line counts spent its whole range separating
+    // tutorials/ from community/, which the numbers and the ordering already
+    // say, and almost none on when a row was busy. Dividing by length fixes
+    // that and keeps every cell comparable to every other, down a column as
+    // well as across a row, which shading against each row's own peak would
+    // have thrown away — under that, one 20-line edit to a dead section looks
+    // exactly as hot as tutorials at 24,000.
+    //
+    // The denominator is the length today, not the length at the time. That is
+    // the better choice rather than a concession: one divisor per row leaves
+    // the row's shape untouched, where a moving one would distort the very
+    // profile the row exists to show.
+    const length = Math.max(child.length, 1);
+    const tr = document.createElement("tr");
+    const label = cell("th", name);
+    label.scope = "row";
+    // The column is narrow enough to clip a long page name, so the full one is
+    // always available without leaving the row.
+    label.title = name;
+    tr.appendChild(label);
+    child.periods.forEach((lines, i) => {
+      const td = cell("td", lines ? compact(lines) : "·");
+      td.className = lines ? "cell" : "cell empty";
+      td.title = lines
+        ? `${num(lines)} lines changed in ${CHURN.periods[i].label} · ` +
+          `${(lines / length).toFixed(2)}× the ${num(child.length)} lines ` +
+          `${name} runs to now`
+        : `${name} was not edited in ${CHURN.periods[i].label}`;
+      if (lines) {
+        // Square root, because the cells are heavy-tailed however they are
+        // measured: across every level of the manual the darkest cell is a
+        // median of 13x the typical one, so a linear ramp leaves the bulk of
+        // the grid at a tenth of the range and unreadable. Root is gentler than
+        // a log curve, which pushed the quiet cells so dark that absence — the
+        // thing this grid is for — stopped being visible.
+        const weight = Math.sqrt(Math.min(1, lines / length / top));
+        td.style.background = `rgba(9,105,218,${(0.07 + 0.53 * weight).toFixed(3)})`;
+      }
+      tr.appendChild(td);
+    });
+    // Added and deleted are the row's total and net read apart again.
+    for (const value of [(child.churn + child.net) / 2,
+                         (child.churn - child.net) / 2]) {
+      const td = cell("td", compact(value));
+      td.title = `${num(value)} lines`;
+      tr.appendChild(td);
+    }
+    body.appendChild(tr);
+  }
+
+  const thead = document.createElement("thead");
+  thead.appendChild(head);
+  const grid = document.getElementById("churn-grid");
+  grid.hidden = !shown.length;
+  grid.replaceChildren(thead, body);
+
+  const where = state.section ? PREFIX + state.section + "/" : "the manual";
+  const silent = children.length - edited.length;
+  const notes = [];
+  if (!edited.length) {
+    // "and none of them was edited" is what the row count already says.
+    notes.push(`Nothing in ${where} was edited in this window`);
+  } else {
+    if (edited.length > shown.length) {
+      notes.push(`The ${shown.length} most-edited of ${num(edited.length)} that ` +
+                 `changed are shown`);
+    }
+    if (silent) {
+      notes.push(`${num(silent)} of ${num(children.length)} had no edits at all`);
+    }
+  }
+  document.getElementById("churn-note").textContent =
+    notes.length ? notes.join("; ") + "." : "";
+  const span = `${CHURN.months[0][0]} – ` +
+               `${CHURN.months[CHURN.months.length - 1].slice(-1)[0]}`;
+  for (const el of document.querySelectorAll(".churn-window")) {
+    el.textContent = span;
+  }
 }
 
 function renderStale() {
@@ -916,6 +1081,7 @@ function render() {
   renderSections();
   renderScatter();
   renderConcentration();
+  renderChurn();
   renderTable();
 }
 
