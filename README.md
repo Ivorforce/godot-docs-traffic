@@ -299,9 +299,9 @@ worth repeating after any change to the charts.
 
 Two cautions. Chrome's stderr carries `ERROR:gpu/...` lines in headless mode that
 have nothing to do with the page, so grepping stderr for "error" gives false
-positives. And a checkbox set from JavaScript does not serialise its `checked`
-attribute into the dumped DOM — assert on the data the toggle changes, not on
-the control.
+positives. And the path bar's menus are built when opened and removed when
+closed, so a dump never contains one — assert on the sections a menu would list,
+which is `menuItems(section)`, rather than on the markup.
 
 Not yet automated. A `scripts/check_page.py` wrapping the above and asserting a
 few invariants (section shares summing to 100% across several hash states) would

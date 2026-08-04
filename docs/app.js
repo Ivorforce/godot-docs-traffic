@@ -66,13 +66,16 @@ const I18N_BINS = [
 
 // ---- state <-> hash ---------------------------------------------------------
 
+// Every key is assigned, absent or not: this also runs on popstate, where a key
+// missing from the entry being restored means "back to the default" rather than
+// "keep whatever is on screen".
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
-  if (p.has("s")) state.section = p.get("s");
-  if (p.has("c")) state.classes = p.get("c") === "1";
-  if (p.has("q")) state.filter = p.get("q");
-  if (p.has("m")) state.scatter = p.get("m") === "i18n" ? "i18n" : "trend";
-  if (p.has("f")) state.footprint = p.get("f") === "pages" ? "pages" : "words";
+  state.section = p.get("s") || "";
+  state.classes = p.get("c") === "1";
+  state.filter = p.get("q") || "";
+  state.scatter = p.get("m") === "i18n" ? "i18n" : "trend";
+  state.footprint = p.get("f") === "pages" ? "pages" : "words";
 }
 
 function writeHash() {
@@ -83,7 +86,17 @@ function writeHash() {
   if (state.scatter !== "trend") p.set("m", state.scatter);
   if (state.footprint !== "words") p.set("f", state.footprint);
   const q = p.toString();
-  history.replaceState(null, "", q ? "#" + q : location.pathname);
+  // Changing scope is a navigation and Back should undo it; typing in the filter
+  // or flipping a chart mode only rewrites the current entry. Comparing against
+  // the URL rather than against previous state also makes this correct on
+  // popstate, where the URL already holds the state being restored and so no
+  // entry is added.
+  const cur = new URLSearchParams(location.hash.slice(1));
+  const moved = (cur.get("s") || "") !== state.section ||
+                (cur.get("c") === "1") !== state.classes;
+  const url = q ? "#" + q : location.pathname;
+  if (moved) history.pushState(null, "", url);
+  else history.replaceState(null, "", url);
 }
 
 // ---- selection --------------------------------------------------------------
@@ -257,6 +270,10 @@ function buildSections() {
     ]},
     options: Object.assign({}, BASE, {
       indexAxis: "y",
+      // The whole row raises the tooltip, not the bar. Sorted by pageviews, the
+      // sections worth asking about are the short bars at the bottom, and their
+      // counts were the hardest to reach when the rectangle was the target.
+      interaction: { mode: "index", intersect: false },
       scales: {
         x: { beginAtZero: true, ticks: { callback: (v) => v + "%" },
              grid: { color: COLORS.grid } },
@@ -277,16 +294,8 @@ function buildSections() {
           if (c.words) {
             lines.push(`${num((1000 * c.pv) / c.words)} pageviews per 1,000 words`);
           }
-          if (c.dir) lines.push("click to open");
           return lines.join("\n");
         } } },
-      },
-      onClick(evt, els) {
-        if (!els.length) return;
-        const child = charts.sections.$children[els[0].index];
-        if (!child || !child.dir) return;
-        state.section = state.section ? state.section + "/" + child.key : child.key;
-        render();
       },
     }),
   });
@@ -448,27 +457,168 @@ function renderStats() {
   }));
 }
 
-function renderCrumbs() {
-  const box = document.getElementById("crumbs");
-  box.replaceChildren();
-  const parts = state.section ? state.section.split("/") : [];
-  const mk = (text, section, last) => {
-    if (last) {
-      const b = document.createElement("b");
-      b.textContent = text;
-      return b;
+/* The path bar. Ancestors are plain links that move up; only the level you are
+   on carries a menu, of the sub-sections inside it. That is enough to reach
+   anywhere: changing a level means clicking the level above it and picking
+   again, the same move a column view makes. One control rather than one per
+   crumb also lets it be drawn as a control — a caret small enough to sit
+   between crumbs is not something a reader finds.
+
+   Menus list directories only. Pages sitting at a level are not places you can
+   go, and the chart below already shows them alongside their siblings. */
+
+const ROOT_LABELS = { true: "Full Manual + Class Reference", false: "Full Manual" };
+
+let openMenu = null;
+
+function closeMenu() {
+  if (!openMenu) return;
+  document.removeEventListener("click", openMenu.onOutside);
+  openMenu.menu.remove();
+  openMenu.button.setAttribute("aria-expanded", "false");
+  openMenu = null;
+}
+
+/* The two corpus entries sit at the top of the root menu rather than in a
+   checkbox of their own: the class reference is 1,079 generated pages under
+   classes/ and nothing else lives there, so "include it" and "look at this part
+   of the manual" are the same kind of choice and belong in the same list. */
+function menuItems(section) {
+  const items = [];
+  if (!section) {
+    items.push({ label: ROOT_LABELS.true, checked: state.classes,
+                 run: () => { state.classes = true; state.section = ""; } });
+    items.push({ label: ROOT_LABELS.false, checked: !state.classes,
+                 run: () => { state.classes = false; state.section = ""; } });
+    items.push({ separator: true });
+  }
+  const children = childrenOf(section);
+  const total = children.reduce((a, c) => a + c.pv, 0);
+  for (const child of children) {
+    if (!child.dir) continue;
+    const target = section ? section + "/" + child.key : child.key;
+    items.push({ label: child.key, note: pct(child.pv, total),
+                 run: () => { state.section = target; } });
+  }
+  return items;
+}
+
+function buildMenu(button, heading, items) {
+  const menu = document.createElement("div");
+  menu.className = "menu";
+  menu.setAttribute("role", "menu");
+  // The percentages need their denominator said out loud: they are shares of the
+  // level the menu was opened from, not of the manual.
+  const head = document.createElement("div");
+  head.className = "menu-head";
+  head.textContent = heading;
+  menu.appendChild(head);
+
+  const entries = [];
+  for (const item of items) {
+    if (item.separator) {
+      const hr = document.createElement("div");
+      hr.className = "menu-sep";
+      menu.appendChild(hr);
+      continue;
     }
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.textContent = text;
-    btn.addEventListener("click", () => { state.section = section; render(); });
-    return btn;
+    btn.className = "menu-item";
+    btn.setAttribute("role", item.checked === undefined ? "menuitem" : "menuitemradio");
+    if (item.checked !== undefined) btn.setAttribute("aria-checked", String(item.checked));
+    const label = document.createElement("span");
+    label.className = "menu-label";
+    label.textContent = item.label;
+    btn.appendChild(label);
+    if (item.note) {
+      const note = document.createElement("span");
+      note.className = "menu-note";
+      note.textContent = item.note;
+      btn.appendChild(note);
+    }
+    btn.addEventListener("click", () => { closeMenu(); item.run(); render(); });
+    menu.appendChild(btn);
+    entries.push(btn);
+  }
+
+  const move = (from, step) => {
+    const i = entries.indexOf(from);
+    entries[(i + step + entries.length) % entries.length].focus();
   };
-  box.appendChild(mk("all docs", "", parts.length === 0));
+  menu.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); move(e.target, 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); move(e.target, -1); }
+    else if (e.key === "Home") { e.preventDefault(); entries[0].focus(); }
+    else if (e.key === "End") { e.preventDefault(); entries[entries.length - 1].focus(); }
+    else if (e.key === "Escape" || e.key === "Tab") { closeMenu(); button.focus(); }
+  });
+  return { menu, entries };
+}
+
+function toggleMenu(button, wrap, section, label) {
+  if (openMenu && openMenu.button === button) { closeMenu(); return; }
+  closeMenu();
+  const heading = section ? `share of ${label} reading` : "share of all reading";
+  const { menu, entries } = buildMenu(button, heading, menuItems(section));
+  wrap.appendChild(menu);
+  button.setAttribute("aria-expanded", "true");
+  const onOutside = (e) => {
+    if (!menu.contains(e.target) && e.target !== button) closeMenu();
+  };
+  // Deferred by a tick: the click that opened the menu is still bubbling towards
+  // the document and would otherwise close it again immediately.
+  setTimeout(() => document.addEventListener("click", onOutside), 0);
+  openMenu = { button, menu, onOutside };
+  if (entries.length) entries[0].focus();
+}
+
+function renderCrumbs() {
+  const box = document.getElementById("crumbs");
+  closeMenu();
+  box.replaceChildren();
+  const parts = state.section ? state.section.split("/") : [];
+
+  const add = (text, section, last) => {
+    const wrap = document.createElement("span");
+    wrap.className = "crumb";
+    if (!last) {
+      const jump = document.createElement("button");
+      jump.type = "button";
+      jump.className = "crumb-jump";
+      jump.textContent = text;
+      jump.addEventListener("click", () => { state.section = section; render(); });
+      wrap.appendChild(jump);
+    } else if (menuItems(section).some((i) => !i.separator)) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "crumb-current";
+      btn.setAttribute("aria-haspopup", "menu");
+      btn.setAttribute("aria-expanded", "false");
+      const label = document.createElement("span");
+      label.textContent = text;
+      const caret = document.createElement("span");
+      caret.className = "caret";
+      caret.textContent = "▾";
+      btn.append(label, caret);
+      btn.addEventListener("click", () => toggleMenu(btn, wrap, section, text));
+      wrap.appendChild(btn);
+    } else {
+      // A section with nothing inside it is a place, not a control.
+      const b = document.createElement("b");
+      b.textContent = text;
+      wrap.appendChild(b);
+    }
+    box.appendChild(wrap);
+  };
+
+  add(ROOT_LABELS[state.classes], "", parts.length === 0);
   parts.forEach((part, i) => {
     const sep = document.createElement("span");
-    sep.textContent = " / ";
-    box.append(sep, mk(part, parts.slice(0, i + 1).join("/"), i === parts.length - 1));
+    sep.className = "crumb-sep";
+    sep.textContent = "/";
+    box.appendChild(sep);
+    add(part, parts.slice(0, i + 1).join("/"), i === parts.length - 1);
   });
 }
 
@@ -710,11 +860,7 @@ function renderDownloads() {
 // ---- controls ---------------------------------------------------------------
 
 function bindControls() {
-  const classes = document.getElementById("classes-toggle");
-  classes.addEventListener("change", () => {
-    state.classes = classes.checked;
-    render();
-  });
+  window.addEventListener("popstate", () => { readHash(); render(); });
 
   const filter = document.getElementById("filter");
   let timer = null;
@@ -747,7 +893,6 @@ function bindControls() {
 }
 
 function syncControls() {
-  document.getElementById("classes-toggle").checked = state.classes;
   const filter = document.getElementById("filter");
   if (filter.value !== state.filter) filter.value = state.filter;
   for (const btn of document.querySelectorAll("#scatter-mode button")) {
@@ -793,13 +938,25 @@ function init() {
   link.textContent = DOCS.commit;
   commit.replaceChildren(link);
 
+  readHash();
+  // A link into the class reference carries its own scope. Without this, a
+  // shared #s=classes/... URL that lost its c=1 opens on an empty report.
+  if (state.section && !sectionRows().length &&
+      DOCS.rows.some((r) => inSection(r, state.section))) {
+    state.classes = true;
+  }
+
+  // Before any chart is constructed. Chart.js reads layout as it sizes its
+  // canvases, and Safari could service that read while the controls row was
+  // still empty — laying out the search box against a path bar that did not
+  // exist yet, and leaving it there until the next reflow.
+  renderCrumbs();
+
   buildSections();
   buildScatter();
   buildFunnel();
   buildDownloads();
   bindControls();
-
-  readHash();
   render();
   renderFunnel();
   renderStale();

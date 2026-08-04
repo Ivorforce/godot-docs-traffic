@@ -26,7 +26,9 @@
     padding: .6rem .75rem; background: #f6f8fa; border: 1px solid #d0d7de;
     border-radius: 6px; position: sticky; top: 0; z-index: 2;
   }
-  .controls input[type="search"] { font: inherit; padding: .15rem .4rem; min-width: 12rem; }
+  .controls input[type="search"] {
+    font: inherit; padding: .15rem .4rem; min-width: 12rem; flex: 0 0 auto;
+  }
   .range-group button {
     font: inherit; padding: .15rem .6rem; border: 1px solid #d0d7de;
     background: #fff; cursor: pointer;
@@ -51,14 +53,52 @@
   td.path { font-size: .85rem; word-break: break-word; }
   .table-wrap { max-height: 30rem; overflow-y: auto; margin-top: .5rem; }
   .table-wrap thead th { position: sticky; top: 0; }
-  .crumbs { font-size: .9rem; }
-  .crumbs button {
-    font: inherit; background: none; border: none; padding: 0 .15rem;
-    color: #0969da; cursor: pointer;
+  /* Grows to fill the row, so the search box sits at the right edge whatever
+     the path bar happens to contain — including nothing, before app.js has
+     filled it. min-height keeps the row from changing height at that moment. */
+  .crumbs {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .1rem;
+    font-size: .9rem; flex: 1 1 auto; min-width: 0; min-height: 1.75rem;
   }
-  .crumbs button:hover { text-decoration: underline; }
-  .crumbs span { color: #57606a; }
+  .crumb { position: relative; display: inline-flex; align-items: center; }
+  .crumb-jump {
+    font: inherit; background: none; border: none; cursor: pointer;
+    padding: .1rem .25rem; border-radius: 4px; color: #0969da;
+  }
+  .crumb-jump:hover { text-decoration: underline; }
+  /* The only menu in the path bar, so it is drawn as a control rather than as
+     text with a caret beside it. */
+  .crumb-current {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font: inherit; font-weight: 600; color: #24292f; cursor: pointer;
+    background: #fff; border: 1px solid #d0d7de; border-radius: 6px;
+    padding: .15rem .5rem;
+  }
+  .crumb-current:hover { background: #f3f4f6; border-color: #adb5bd; }
+  .crumb-current[aria-expanded="true"] { border-color: #0969da; }
+  .crumb-current .caret { color: #57606a; font-size: .8em; }
+  .crumb-sep { color: #8c959f; }
   .crumbs b { font-weight: 600; }
+  .menu {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 5;
+    min-width: 15rem; max-width: min(24rem, 80vw); max-height: 22rem;
+    overflow-y: auto; padding: .25rem; background: #fff;
+    border: 1px solid #d0d7de; border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(31,35,40,.15);
+  }
+  .menu-head {
+    font-size: .75rem; color: #57606a; padding: .2rem .5rem .35rem;
+  }
+  .menu-sep { border-top: 1px solid #d8dee4; margin: .25rem 0; }
+  .menu-item {
+    display: flex; justify-content: space-between; gap: 1.5rem; width: 100%;
+    font: inherit; text-align: left; color: #24292f; background: none;
+    border: none; border-radius: 4px; padding: .3rem .5rem; cursor: pointer;
+  }
+  .menu-item:hover, .menu-item:focus { background: #ddf4ff; outline: none; }
+  .menu-item[role="menuitemradio"] .menu-label { position: relative; padding-left: 1.2em; }
+  .menu-item[aria-checked="true"] .menu-label::before { content: "✓"; position: absolute; left: 0; }
+  .menu-note { color: #57606a; font-variant-numeric: tabular-nums; }
   dl.defs {
     display: grid; grid-template-columns: max-content 1fr; gap: .5rem .75rem;
     margin: .5rem 0 0; font-size: .85rem; color: #57606a;
@@ -97,11 +137,11 @@ scoreboard, and not a list of pages to delete.</p>
 <div class="stats" id="stats"></div>
 <p class="caption">The whole English <code>/en/stable/</code> manual over
 <span class="period-inline">…</span>. The charts below follow the section you
-select; these totals do not.</p>
+select in the path bar; these totals follow only its first choice, of whether
+the class reference counts as part of the manual.</p>
 
 <div class="controls">
   <span class="crumbs" id="crumbs"></span>
-  <label><input type="checkbox" id="classes-toggle"> include class reference</label>
   <input type="search" id="filter" placeholder="filter pages…" aria-label="Filter pages">
 </div>
 
@@ -113,11 +153,12 @@ select; these totals do not.</p>
 </h2>
 <div class="chart-box tall"><canvas id="chart-sections"></canvas></div>
 <p class="caption">For each part of the manual, the share of reading it receives
-against the share of the manual it occupies. Click a bar to go a level deeper;
-hover for the underlying counts and for pageviews per thousand words. Where the
-grey bar runs past the blue one, that part is larger than its readership — a
-question worth asking, not an answer: reference material is <em>supposed</em> to
-be consulted rarely, and a section can be long because the subject is hard.</p>
+against the share of the manual it occupies. Use the path bar above to move
+between sections; hover a bar for the underlying counts and for pageviews per
+thousand words. Where the grey bar runs past the blue one, that part is larger
+than its readership — a question worth asking, not an answer: reference material
+is <em>supposed</em> to be consulted rarely, and a section can be long because
+the subject is hard.</p>
 <p class="caption">The two bars are percentages of <em>different</em> totals —
 one of all pageviews, one of all the manual's words — so the distance between
 them is a ratio, not a subtraction. A section at half its share of reading is
@@ -260,7 +301,8 @@ intent to download, not a completed one.</p>
         why nothing on this page is sorted, coloured or ranked by it.</li>
     <li>The class reference is generated from the engine's source and synced in
         bulk, so its git dates record sync commits rather than anyone writing.
-        It is excluded from the section chart by default for that reason.</li>
+        For that reason the report opens on the manual without it; the first
+        entry in the path bar puts its 1,079 pages back in.</li>
     <li>Only English <code>/en/stable/</code> pages are shown in detail.
         Translation reads are summed across all other languages per page, and
         both sides count the current docs only, so the share compares like with
