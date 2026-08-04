@@ -490,15 +490,39 @@ class TestGeneratedPayload(unittest.TestCase):
 
     def test_funnel_paths_exist(self):
         known = set(self.docs["paths"])
-        for url in self.docs["funnel"]:
-            self.assertIn(url, known)
+        for group in self.docs["funnel"]:
+            self.assertIn(group["landing"], known)
+            for url in group["steps"]:
+                self.assertIn(url, known)
 
     def test_funnel_follows_the_toctree_order(self):
         # The introduction must come before the 2D game, whatever the traffic.
-        order = [u for u in self.docs["funnel"]]
+        order = [g["landing"] for g in self.docs["funnel"]]
         intro = order.index("/en/stable/getting_started/introduction/index.html")
         game = order.index("/en/stable/getting_started/first_2d_game/index.html")
         self.assertLess(intro, game)
+
+    def test_funnel_steps_sit_under_their_landing_page(self):
+        """The chart divides every step by its landing page's pageviews, and
+        labels each series by the landing page's folder. A step from a
+        different folder would be charted against a denominator it has nothing
+        to do with, under someone else's name."""
+        for group in self.docs["funnel"]:
+            folder = group["landing"].rsplit("/", 1)[0]
+            self.assertTrue(group["landing"].endswith("/index.html"),
+                            group["landing"])
+            for url in group["steps"]:
+                self.assertEqual(url.rsplit("/", 1)[0], folder)
+                self.assertNotEqual(url, group["landing"])
+
+    def test_funnel_covers_the_whole_getting_started_guide(self):
+        """Read from the toctrees, so a page added to getting_started/ without
+        being listed in one would be missing from the chart while the page's
+        own prose calls the guide a third of all reading."""
+        charted = {g["landing"] for g in self.docs["funnel"]}
+        charted.update(u for g in self.docs["funnel"] for u in g["steps"])
+        under = {p for p in self.docs["paths"] if "/getting_started/" in p}
+        self.assertEqual(under - charted, set())
 
     def test_no_identity_metric_reaches_the_page(self):
         """Per-visitor and per-session figures are unreliable on this instance

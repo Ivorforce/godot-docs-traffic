@@ -152,9 +152,11 @@ scoreboard, and not a list of pages to delete.</p>
 
 <div class="stats" id="stats"></div>
 <p class="caption">The whole English <code>/en/stable/</code> manual over
-<span class="period-inline">…</span>. The charts below follow the section you
-select in the path bar; these totals follow only its first choice, of whether
-the class reference counts as part of the manual.</p>
+<span class="period-inline">…</span>. Everything from the path bar down to the
+page table follows the section you select there, and the sections after it are
+fixed; the filter box narrows the page table alone. These totals follow only the
+path bar's first choice, of whether the class reference counts as part of the
+manual.</p>
 
 <div class="controls">
   <span class="crumbs" id="crumbs"></span>
@@ -217,15 +219,6 @@ English reading so closely that it would only redraw the horizontal axis. Around
 the page yet rather than that nobody wants it, and a page near or above 1× is one
 where an English rewrite sets fifteen translations back.</p>
 <p class="caption" id="concentration"></p>
-
-<h2>Getting started, step by step</h2>
-<div class="chart-box tall"><canvas id="chart-funnel"></canvas></div>
-<p class="caption">The onboarding path in the order the docs present it, read
-from the table of contents so a restructure moves this chart instead of breaking
-it. Readers arrive from search at any point and leave whenever they have what
-they came for, so this is not a funnel with a single entrance — a step drawing
-more than the one before it means people entered there, not that readers
-multiplied. The shape between neighbouring steps is the useful part.</p>
 
 <h2>Where the docs are being written</h2>
 <div class="grid-wrap"><table id="churn-grid"></table></div>
@@ -308,6 +301,40 @@ comparing pages against each other rather than as a typographic measure.
 over <span class="churn-window">…</span>: how many source
 lines moved, and how many the page gained by it. A net near the total is a page
 that was written; a net near zero is a page that was rewritten.</p>
+
+<h2>Getting started, tutorial by tutorial</h2>
+<p class="caption">The sections from here on are fixed: the path bar and the
+filter box above do not reach them, because each answers a question about a
+named part of the site rather than about whichever part is selected.</p>
+<div class="chart-box tall"><canvas id="chart-funnel"></canvas></div>
+<p class="caption">The four tutorials of the getting-started guide, in the order
+the docs present them, each page measured against its own tutorial's landing
+page. The order and the grouping are read from the table of contents, so a
+restructure moves this chart instead of breaking it. Hover a point for the page
+and the count behind its percentage. The guide is a third of all reading in the
+hand-written manual, a quarter once the class reference is counted in.</p>
+<p class="caption" id="funnel-note"></p>
+<p class="caption">Each tutorial is drawn against its own landing page because
+the four are far apart in absolute reading — the 2D game is roughly three times
+the 3D one — and on a shared scale the smaller two flatten into the axis with
+their shape still in them. The percentages are <em>not</em> conversion, and the
+landing page is a denominator rather than a door: readers arrive from search at
+any step and leave whenever they have what they came for. A step above 100%
+would mean people entered there, not that readers multiplied.</p>
+<p class="caption">All four decline broadly in the order the docs set, but the
+step-to-step comparisons are looser than the overall shape and should be read
+that way. The 3D game's later steps sit between 1,400 and 2,500 pageviews, where
+a few hundred either way is a visible part of the line, and small recoveries at
+step 3 and step 5 appear in both game tutorials without meaning much. The trend
+across a tutorial is the reliable part; the gap between two neighbouring points
+is not.</p>
+<p class="caption">One departure is too large to read that way.
+<code>signals.html</code>, the last step of <code>step_by_step</code>, draws
+more than the two steps before it — 14,397 pageviews against 8,660 and 5,987.
+Position cannot explain that and direct arrival probably can: it is a concept
+people come looking for by name rather than one they reach by working forward.
+It is the only page in the guide whose reading the sequence does not account
+for, which makes it the one worth treating as an entrance in its own right.</p>
 
 <h2>Removed pages with no redirect</h2>
 <table id="stale-table">

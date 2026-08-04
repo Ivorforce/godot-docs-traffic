@@ -71,6 +71,19 @@ const I18N_BINS = [
   { max: Infinity, label: "0.75× or more", color: "#0d366b" },
 ];
 
+/* One entry per getting-started tutorial, assigned in the order the docs list
+   them. Two blues then two ambers, from the same families as the scales above,
+   so the four stay distinguishable in every colour vision type. Each carries a
+   marker shape as well, which is what keeps the lines apart in print, at a
+   glance, and for a reader who cannot use the colours at all. Four is not a
+   fixed count — the list wraps if the docs ever add a fifth. */
+const FUNNEL_STYLES = [
+  { color: "#0d366b", point: "circle" },
+  { color: "#2a78d6", point: "triangle" },
+  { color: "#d4a72c", point: "rect" },
+  { color: "#7d4e00", point: "rectRot" },
+];
+
 // ---- state <-> hash ---------------------------------------------------------
 
 // Every key is assigned, absent or not: this also runs on popstate, where a key
@@ -388,25 +401,32 @@ function buildScatter() {
 
 function buildFunnel() {
   charts.funnel = new Chart(document.getElementById("chart-funnel"), {
-    type: "bar",
-    data: { labels: [], datasets: [
-      { label: "pageviews", backgroundColor: COLORS.reading, data: [] },
-    ]},
+    type: "line",
+    data: { labels: [], datasets: [] },
     options: Object.assign({}, BASE, {
-      indexAxis: "y",
+      // Points, not bars or the nearest column: the question here is always
+      // about one page, and four series stacked at the same step would answer
+      // with four pages the reader did not ask about.
+      interaction: { mode: "nearest", intersect: false },
       scales: {
-        x: { beginAtZero: true, grid: { color: COLORS.grid },
-             ticks: { callback: (v) => num(v) } },
-        y: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        x: { title: { display: true, text: "position in the tutorial" },
+             grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { beginAtZero: true, grid: { color: COLORS.grid },
+             title: { display: true, text: "% of the tutorial's landing page" },
+             ticks: { callback: (v) => v + "%" } },
       },
       plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { afterLabel(item) {
-          const step = charts.funnel.$steps[item.dataIndex];
-          return step.prev
-            ? `${step.delta >= 0 ? "+" : ""}${step.delta}% vs the step before`
-            : "";
-        } } },
+        legend: { labels: { boxWidth: 8, usePointStyle: true, font: { size: 11 } } },
+        tooltip: { callbacks: {
+          // The share is what is drawn and the count is what it was computed
+          // from; a percentage of an unstated base is the one number on this
+          // chart a reader could not check.
+          label(item) {
+            const p = charts.funnel.data.datasets[item.datasetIndex].$pages[item.dataIndex];
+            return `${p.short} — ${num(p.pv)} pageviews, ` +
+                   `${Math.round(p.share)}% of the landing page`;
+          },
+        } },
       },
     }),
   });
@@ -749,22 +769,82 @@ function renderConcentration() {
   document.getElementById("concentration").textContent = text;
 }
 
-function renderFunnel() {
+/* Folder name to tutorial name: "first_2d_game" -> "first 2D game". The docs
+   carry a real title for each of these, but only in the reStructuredText the
+   inventory does not keep, and the folder is what a restructure renames
+   anyway. The digit case is fixed because "2d" reads as a typo. */
+function tutorialLabel(landing) {
+  return landing.slice(PREFIX.length + "getting_started/".length)
+                .split("/")[0]
+                .replace(/_/g, " ")
+                .replace(/\b(\d)d\b/g, "$1D");
+}
+
+// The page within its tutorial: the folder is already the series name, and the
+// "01." prefixes are already the x axis.
+function stepLabel(url) {
+  return url.split("/").pop().replace(/\.html$/, "")
+            .replace(/^\d+\./, "").replace(/[-_]/g, " ");
+}
+
+function funnelSeries() {
   const byPath = new Map(DOCS.rows.map((r) => [DOCS.paths[r[PATH]], r[PV]]));
-  const steps = DOCS.funnel.map((url) => ({
-    url,
-    short: url.slice(PREFIX.length + "getting_started/".length)
-              .replace(/\.html$/, "").replace(/_/g, " "),
-    pv: byPath.get(url) || 0,
-  }));
-  steps.forEach((s, i) => {
-    s.prev = i > 0 ? steps[i - 1].pv : null;
-    s.delta = s.prev ? Math.round((100 * (s.pv - s.prev)) / s.prev) : 0;
+  return DOCS.funnel.map((group, i) => {
+    const landing = byPath.get(group.landing) || 0;
+    const pages = [group.landing, ...group.steps].map((url, step) => {
+      const pv = byPath.get(url) || 0;
+      return {
+        url, pv,
+        short: step ? stepLabel(url) : "landing page",
+        // Against the landing page rather than against step one, so the first
+        // segment of every line is the drop at the door. In both game
+        // tutorials that is the largest single fall in the sequence.
+        share: landing ? (100 * pv) / landing : 0,
+      };
+    });
+    return Object.assign({ title: tutorialLabel(group.landing), landing, pages },
+                         FUNNEL_STYLES[i % FUNNEL_STYLES.length]);
   });
-  charts.funnel.$steps = steps;
-  charts.funnel.data.labels = steps.map((s) => s.short);
-  charts.funnel.data.datasets[0].data = steps.map((s) => s.pv);
+}
+
+function renderFunnel() {
+  const series = funnelSeries();
+  // The tutorials are 7 to 11 pages long. Chart.js aligns each dataset to the
+  // shared label list by index, so the shorter lines simply stop early.
+  const longest = Math.max(...series.map((s) => s.pages.length));
+  charts.funnel.data.labels = Array.from(
+    { length: longest }, (_, i) => (i ? String(i) : "landing"));
+  charts.funnel.data.datasets = series.map((s) => ({
+    label: s.title,
+    data: s.pages.map((p) => p.share),
+    $pages: s.pages,
+    borderColor: s.color,
+    backgroundColor: s.color,
+    pointStyle: s.point,
+    pointRadius: 4,
+    pointHoverRadius: 7,
+    borderWidth: 2,
+    // Straight segments. A curve through these would invent readings between
+    // steps, and there is nothing between step 3 and step 4.
+    tension: 0,
+  }));
   charts.funnel.update();
+  renderFunnelNote(series);
+}
+
+/* The drop at the door, in figures. Asserted from the data rather than written
+   into the caption: the sentence is only true while it is true, and a hardcoded
+   one would go on claiming it after the next refresh moved a number. */
+function renderFunnelNote(series) {
+  const tallest = series.every((s) => s.pages.every((p) => p.share <= 100));
+  const parts = series.map((s) =>
+    `${s.title}, ${num(s.landing)} pageviews and ${Math.round(s.pages[1].share)}%`);
+  document.getElementById("funnel-note").textContent =
+    (tallest
+      ? "Every tutorial's landing page is read more than any page inside it. "
+      : "") +
+    `Landing page, then the share of it that reaches the first step: ` +
+    parts.join("; ") + ".";
 }
 
 const COLUMNS = [

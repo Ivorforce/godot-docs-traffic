@@ -140,20 +140,30 @@ def load_i18n(month, field="c"):
 
 
 def build_funnel(inventory):
-    """The onboarding sequence, in the order the docs themselves present it.
+    """The onboarding tutorials, each with its landing page and its steps.
 
     Read from the toctrees rather than hardcoded, so a docs restructure moves
-    the chart instead of silently breaking it.
+    the chart instead of silently breaking it. The grouping is the docs' own:
+    every entry in the getting-started toctree is one tutorial's landing page,
+    and that page's own toctree is its steps. Kept rather than flattened,
+    because the four tutorials are four separate sequences that each restart at
+    their landing page, and a reader given one run of pages has no way to see
+    where one ends and the next begins.
     """
     toctrees = inventory["toctrees"]
-    order = []
+    src_to_url = {p["src"]: url for url, p in inventory["pages"].items()}
+    out = []
     for entry in toctrees.get("index.rst", []):
         if not entry.startswith("getting_started/"):
             continue
-        order.append(entry)
-        order.extend(toctrees.get(entry, []))
-    src_to_url = {p["src"]: url for url, p in inventory["pages"].items()}
-    return [src_to_url[src] for src in order if src in src_to_url]
+        landing = src_to_url.get(entry)
+        steps = [src_to_url[src] for src in toctrees.get(entry, [])
+                 if src in src_to_url]
+        # A tutorial with no steps is a single page, not a sequence: there is
+        # nothing for the chart to draw a shape between.
+        if landing and steps:
+            out.append({"landing": landing, "steps": steps})
+    return out
 
 
 def parse_download(url):
