@@ -54,14 +54,21 @@ NOT_A_PAGE = frozenset({"404.rst"})
 # reflect sync commits rather than anyone writing prose.
 GENERATED_DIRS = ("classes",)
 
-# Read the Docs' own redirects are capped at ~50, and godot-docs needs hundreds,
-# so the overflow lives in this file and is applied by 404.rst in the browser.
-# That difference is what makes it readable here at all: an RTD redirect answers
-# with a 301 and the old URL never renders, so it records no pageview, while a
-# redirect from this file runs *on* the 404 page — the analytics script has
-# already fired against the old URL by the time the reader is forwarded. So
-# every URL in this file that people still reach shows up in our traffic data,
+# Every redirect the manual has is meant to be in this file; it is the source of
+# truth. Read the Docs applies only the first ~50 of them, and 404.rst applies
+# the rest in the browser, which is why they behave differently in our traffic
+# data. An RTD redirect answers with a 301 and the old URL never renders, so it
+# records no pageview; a redirect applied by 404.rst runs *on* the 404 page,
+# where the analytics script has already fired against the old URL by the time
+# the reader is forwarded. Only that second share leaves traffic on the old URL,
 # and without it we would read "successfully forwarded" as "dead link".
+#
+# The file is written by hand and nothing in CI checks it against the pages that
+# actually moved, so a merged, removed or renamed page regularly ends up with no
+# row at all. Treat a missing row as "nobody wrote one", never as "this page did
+# not move": the join from old URL to new is as complete as the file is, which is
+# to say incomplete by an unknown amount. Pages whose readers land nowhere are
+# the visible part of that gap, and are reported as removed with no redirect.
 REDIRECTS = "_static/redirects.csv"
 
 
