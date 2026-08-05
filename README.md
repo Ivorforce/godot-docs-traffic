@@ -20,9 +20,10 @@ from disk. Not published — see *Publishing clearance* below.
 
 The headline finding so far is about the data rather than the docs. The manual
 has **no dead pages**: all 1,590 English `/en/stable/` pages were read at least
-once in July 2026, and 511 hand-written pages carry a million pageviews. So "what can be trimmed" has no easy answer here, and the report is
-built to show proportion — 26 pages carry half the reading — rather than to
-produce a deletion list.
+once in July 2026, and 511 hand-written pages carry a million pageviews. So "what
+can be trimmed" has no easy answer here, and the report is built to show
+proportion — 26 pages carry half the reading — rather than to produce a deletion
+list.
 
 ### Why this report only uses pageviews
 
@@ -39,89 +40,20 @@ move, and the ratio has stayed there since.
 | 2025-10-01 | 132,584 | 2,690 | 49.3 |
 | 2025-10-02 | 130,549 | 2,470 | 52.9 |
 
-The most likely explanation is an infrastructure change on that date — a CDN or
-reverse proxy in front of the instance, after which Plausible hashes an upstream
-address shared by many readers rather than each reader's own. That is consistent
-with what else the data shows: country, browser, OS and device still resolve for
-~100% of traffic, so the events are intact and only the per-reader identity is
-degraded. Confirming it needs server-side access and is not visible through the
-Stats API, so this repository treats it as a property of the data source, not as
-something to diagnose.
+The likely cause is an infrastructure change on that date — a CDN or reverse
+proxy in front of the instance, after which Plausible hashes an upstream address
+shared by many readers. Country, browser, OS and device still resolve for ~100%
+of traffic, so the events are intact and only the per-reader identity is
+degraded. Confirming it needs server-side access, so this repository treats it as
+a property of the data source.
 
-Consequences, and they are not severe for this report's question:
-
-- **Pageviews are unaffected** and are the only traffic metric used anywhere.
-- Anything derived from identity or sessions — unique visitors, visits, bounce
-  rate, session duration — is not used. Geolocation is intact but not used
-  either; this report has no geographic question.
-- This Plausible version offers no `scroll_depth` and no `time_on_page`, so there
-  is no per-pageview engagement metric to fall back on. Page-quality signals come
-  from the docs source tree (length, staleness) instead.
-
-None of this appears on the page itself. A reader looking at documentation
-traffic has no way to know these metrics were ever an option, and a prominent
-notice about a metric that is absent would mislead more than it informs. The
-page states plainly that everything on it is pageviews and that no engagement
-signal exists; the reasoning lives here.
-
-If you run the instance, `scripts/fetch.py` stores daily visitor counts in
-`data/raw/site-daily.ndjson` — unused by the report, kept so the table above
-stays checkable.
-
-### Why there is no translator's view
-
-A second page was built up to the point of drawing it and then abandoned: for
-each language, which pages are most read against how much of them is still
-untranslated, so a translator could pick high-demand, low-coverage work. The
-machinery is here and dormant — `scripts/l10n.py`, and `fetch.py --by-language`
-— because the question is a good one and the answer turned out not to need a
-page.
-
-**Translators are already working in demand order.** Across the mid-coverage
-languages the correlation between a page's reading and its coverage runs 0.44
-to 0.60 (ja 0.60, es 0.50, fr 0.45, pt-br 0.44), and their top decile by demand
-is 75–85% translated against 30–44% overall. For the near-complete languages the
-correlation collapses (it 0.07, de 0.10) because there is nothing left to
-prioritise — Italian's top decile is 96% done. Nobody needed a report to tell
-them to start with the popular pages.
-
-**And the recommendation would have been the obvious one.** Ranked by reading
-per remaining word, 13 of Japanese's top 20 and 9 of French's are
-`getting_started/`, and most of the rest are `about/system_requirements`,
-`community/tutorials`, `tutorials/scripting/index`. "Finish the getting-started
-tutorials" is not worth a page to discover. The ranking also degenerates where
-coverage is lowest, which is where it would be most wanted: for Polish, at 5%
-translated, the top entries are two-word index stubs with five readers, because
-a small denominator wins a ratio.
-
-Two findings did survive, and both fit in a paragraph rather than a chart.
-
-**Counting strings overstates progress, worst where the work is.** A string
-count is what `msgfmt --statistics` reports and what a per-page progress figure
-is usually quoted as; a translator spends words. Short strings get translated
-first, so the two diverge systematically and always in the same direction —
-`tutorials/2d/index` reads 67% done by string and is 9% done by words, because
-its four translated strings are `2D`, `Rendering`, `Physics and movement` and
-`Tools` while the two left carry 62 of the page's 68 words. It holds on every
-page and language checked (`gdscript_basics` in Japanese 79% against 62%,
-`about/faq` in Polish 70% against 62%), and converges only once a page is
-genuinely finished (`about/faq` in German, 99% both ways). A progress number
-read as "nearly there" can mean nine tenths of the writing is still to come.
-
-What is *measured* here is the divergence between the two counts, from the
-`.po` and `.pot` files. Which figure Godot's translators actually work from was
-not checked — Weblate tracks word statistics as well as string statistics, so
-this is a caution about how a percentage is read rather than a defect found in
-anyone's tooling.
-
-**A sixth of the remaining work is on pages nobody reads in that language.**
-Between 6% and 27% of each language's untranslated words sit on pages with zero
-readers in it over the month — 27% for Italian, 15% Polish, 13% German. That is
-a stop signal rather than a start signal, it is invisible in Weblate, and it is
-one number per language.
-
-Reproduce either with `python3 scripts/l10n.py` (~120 MB clone, three seconds)
-joined against a roll-up fetched with `--by-language`.
+Consequently: **pageviews are the only traffic metric used anywhere.** Anything
+derived from identity or sessions — unique visitors, visits, bounce rate, session
+duration — is unused. This Plausible version offers no `scroll_depth` and no
+`time_on_page` either, so page-quality signals come from the source tree (length,
+staleness) instead of from engagement. `scripts/fetch.py` still stores daily
+visitor counts in `data/raw/site-daily.ndjson`, unused, so the table above stays
+checkable.
 
 ### Publishing clearance
 
@@ -139,62 +71,40 @@ nothing sensitive ever entered history.
 
 ## How it works
 
-- `scripts/plausible.py` — Stats API v2 client. Godot self-hosts at
-  `plausible.godot.foundation`, and both `godotengine.org` and
-  `docs.godotengine.org` report to one Plausible site with
-  `data-domain="godotengine.org"`, so they share a path namespace and are split
-  with an `event:hostname` filter. `Client.capabilities()` re-probes which
-  metrics and dimensions exist, so a server upgrade that adds `scroll_depth`
-  gets noticed rather than silently changing results.
+- `scripts/plausible.py` — Stats API v2 client. Both `godotengine.org` and
+  `docs.godotengine.org` report to one Plausible site, so they share a path
+  namespace and are split with an `event:hostname` filter.
+  `Client.capabilities()` re-probes which metrics and dimensions exist, so a
+  server upgrade that adds `scroll_depth` gets noticed rather than silently
+  changing results.
 - `scripts/fetch.py` — writes `data/raw/`, one byte-stable ndjson file per kind
   and month. The docs site serves ~87k distinct URLs a month across 46 language
-  codes and a dozen versions; keeping that per-page for every month would be
-  ~85 MB of mostly noise. So per-page detail is English-only, and the other
-  languages are rolled up per path for the newest month alone, at 519 KB. Two
-  counts per path, not one: the current docs and every version, because a share
-  needs the first and the breadth of translated reading needs the second.
-  `--by-language` keeps the language rather than summing it away, at 2.2 MB and
-  no extra requests; it is off because nothing reads it, and it exists because
-  no downstream work recovers a dimension discarded at fetch time (see *Why
-  there is no translator's view*). Only the newest month
-  pages the full hostname (nine requests); older months fetch the English subset
-  in one.
-
-  Three kinds go unread by the report: `www` (pages on `godotengine.org`),
-  `outbound` (clicks leaving the site, which is where download links show up)
-  and `os`. They belong to a *visitor* report rather than a docs one — the
-  question they answer is about the engine's audience, not about which page
-  needs care — and every claim on this page comes from joining traffic to the
-  source tree, which none of them can do. Fetching them costs three queries a
-  month and keeps the history accumulating, so a separate analysis one day
-  starts with the months already stored rather than with a backfill.
+  codes and a dozen versions, so per-page detail for all of them would be ~85 MB
+  of mostly noise: it is kept for English only, and other languages are rolled up
+  per path for the newest month alone, at 519 KB. Two counts per path — the
+  current docs, which shares divide by, and every version. `--by-language` keeps
+  the language rather than summing it away, at 2.2 MB and no extra requests; it
+  is off because nothing reads it. Three kinds are fetched but unread — `www`,
+  `outbound` and `os` — because they belong to a *visitor* report rather than a
+  docs one and cost three queries a month, so that analysis one day starts with
+  history already stored.
 - `scripts/inventory.py` — clones `godot-docs` at the `stable` branch (which is
   what Read the Docs serves at `/en/stable/`, not `master`) and records each
   page's word count, last-edit timestamp, two-year line churn and toctree
   position, plus the date every *removed* page left the tree and the redirects
-  that forward the URLs they left behind. Sparse (`*.rst` plus
-  `_static/redirects.csv`) so the working tree stays small, but **not**
-  blob-filtered: `git log --numstat` needs both sides of every diff, and on a
-  filtered clone it fetches blobs one request at a time — minutes over a year,
-  and it fails outright over more — a two-year walk fails too, so shortening the
-  window does not buy the filter back. Unfiltered the same walk takes seconds, at the cost of a ~740 MB clone that takes a minute or two
-  the first time. A cache left over from the filtered era is detected and
-  refetched once, rather than failing in a way that reads like a git bug.
-  History is kept in full either way, since last-edit dates are the entire
-  point. The sparse spec is reapplied on every run, so a cache built by an older
-  revision picks up newly needed files rather than silently missing them.
-  Nothing of this reaches GitHub: `.cache/` is gitignored.
+  forwarding the URLs they left behind. Sparse (`*.rst` plus
+  `_static/redirects.csv`) but **not** blob-filtered: `git log --numstat` needs
+  both sides of every diff, and on a filtered clone it fetches blobs one request
+  at a time, taking minutes over a year and failing outright over two. Unfiltered
+  the same walk takes seconds, at the cost of a ~740 MB clone. `.cache/` is
+  gitignored.
 - `scripts/l10n.py` — **not part of the pipeline**; nothing runs it and nothing
-  reads its output. The mirror of `inventory.py` one repository over: it clones
-  `godot-docs-l10n` and records, per page and language, how many of the page's
-  source words are translated, into `data/l10n.json` (94 KB, three seconds).
-  Shallow and blob-filtered where the docs clone can be neither, because nothing
-  here asks anything of the history — only the current state of the
-  translations — at ~120 MB for thirteen languages and 6,565 `.po` files.
-  Coverage is word-weighted; the denominator is `sphinx/templates/<page>.pot`
-  and cannot be the language's own `.po`, which holds only what someone has
-  already translated, so reading that alone reports every page in every language
-  as complete. Kept for the reasons in *Why there is no translator's view*.
+  reads its output. It clones `godot-docs-l10n` and records, per page and
+  language, how many of the page's source words are translated, into
+  `data/l10n.json` (94 KB, ~120 MB clone). Coverage is word-weighted, and the
+  denominator must be `sphinx/templates/<page>.pot`: a language's own `.po` holds
+  only what someone has already translated, so reading that alone reports every
+  page as complete.
 - `scripts/aggregate.py` — joins raw traffic and the inventory into
   `docs/data.js`, a single `window.DATA = {…}` assignment.
 - `docs/` — the page. Hand-written `index.html`, vanilla `app.js`, and a
@@ -206,414 +116,224 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
 
 ## Metric definitions
 
-- **pageviews** — the only traffic metric used anywhere. Visitors, visits, bounce
-  rate and session duration are excluded because they broke on 2025-10-01.
+- **pageviews** — the only traffic metric used anywhere.
 - **page** — a URL that resolves to a `.rst` file in godot-docs at the recorded
   commit. Directory URLs and `index.html` are folded onto one canonical form, or
   a page's traffic would split across two rows and each would look half as read.
   URLs with no source file (~2% of pageviews: removed pages, Sphinx's search
   page, scanner noise) are excluded from every figure and listed separately, so
-  the exclusion is visible rather than silent.
-
-  `404.rst` is dropped as well, being the "page not found" template rather than
-  a page of the manual. Read the Docs serves it *in place of* a missing URL and
-  the pageview records the URL the reader asked for, so the reading it stands
-  for is already counted under **forwarded** and in the removed-pages table,
-  while `/en/stable/404.html` itself draws two or three views a month from people
-  who navigate to it directly. Counted as a page it was a bar in the section
-  chart with no reading and no words — its body is a raw HTML block, so its
-  length means nothing either — and the one page behind what used to read "all
-  but one page was read at least once".
+  the exclusion is visible rather than silent. `404.rst` is dropped too, being the
+  "page not found" template: Read the Docs serves it *in place of* a missing URL
+  while the pageview records the URL the reader asked for, so its reading is
+  already counted under **forwarded**.
 - **corpus** — which body of pages every figure down to the page-by-page table
   is about, chosen by the path bar's first entries: the hand-written manual by
   default, the manual with the class reference counted in, or the class
   reference on its own.
 
   The class reference is 1,079 generated pages against 511 hand-written ones, so
-  whether it counts decides the shape of every page-count comparison here. That
-  is why it is one choice at the top rather than a filter on the one chart that
-  motivated it. Alone it is a corpus rather than a section: those pages sync in
-  bulk from the engine's source, and asked as a group they answer a different
-  question — which classes people read, and which the engine keeps moving —
-  that the manual crowds off every chart while the two share a scale. Selected,
-  the report roots itself at `classes/`, a corpus whose top level is a single
-  directory otherwise being one bar at 100%. Where that root is comes from the
-  pages rather than from the page: `inventory.py` names the generated
-  directories, and if it ever names a second one the corpus opens on those
-  directories instead.
-
-  The section chart draws the 30 most-read children of the level and says
-  underneath what that left out, the same as the churn grid does. The class
-  reference is what needs it — a flat level of 1,079 pages is a smear a pixel
-  high apiece — and 30 is above every level the hand-written manual has, where
-  `tutorials/` is the largest at 26, so nothing there is cut. Both bars stay
-  shares of the whole level, so the ones drawn keep meaning what they mean and
-  simply no longer sum to 100%.
+  whether it counts decides the shape of every page-count comparison. Alone it is
+  a corpus rather than a section: those pages sync in bulk from the engine's
+  source, and asked as a group they answer a different question — which classes
+  people read, and which the engine keeps moving. `inventory.py` names the
+  generated directories, so the root the report jumps to comes from the pages
+  rather than being written into the page. It is also why the section chart and
+  the churn grid cap their rows and say underneath what that left out: a flat
+  level of 1,079 is a smear a pixel high apiece. Both bars stay shares of the
+  whole level, so what is drawn no longer sums to 100%.
 - **removed** — the commit that deleted a page's source file, from a second
-  `git log --diff-filter=D` walk. A page removed *before* the traffic window
-  was gone for all of it, so every view is a reader hitting a dead end; one
-  removed *during* the window was readable for part of it, and its views are
-  partly ordinary reading.
-- **forwarded** — whether `_static/redirects.csv` sends the URL somewhere.
-  Read the Docs caps its own redirects at ~50 and godot-docs needs hundreds, so
-  the overflow lives in that file and is applied by `404.rst` **in the reader's
-  browser**. That is what makes it measurable here: an RTD redirect answers with
-  a 301 and the old URL never renders, recording nothing, while a redirect from
-  the CSV runs *on* the 404 page, after the analytics script has already fired
-  against the old path. Every forwarded URL people still reach therefore appears
-  in the traffic data — and read naively, looks exactly like a dead link.
+  `git log --diff-filter=D` walk. A page removed *before* the traffic window was
+  gone for all of it, so every view is a reader hitting a dead end; one removed
+  *during* the window was readable for part of it.
+- **forwarded** — whether `_static/redirects.csv` sends the URL somewhere. Read
+  the Docs caps its own redirects at ~50 and godot-docs needs hundreds, so the
+  overflow lives in that file and is applied by `404.rst` **in the reader's
+  browser**. That is what makes it measurable: an RTD redirect answers with a 301
+  and the old URL never renders, recording nothing, while a redirect from the CSV
+  runs *on* the 404 page, after the analytics script has fired against the old
+  path. Every forwarded URL people still reach therefore appears in the traffic
+  data — and read naively, looks exactly like a dead link.
 
-  Joining the file is what makes the table actionable rather than merely
-  descriptive. Pageviews to URLs with no source file split three ways: about
-  half are forwarded by the CSV and the reader arrived where they meant to, most
-  of the rest went to URLs that were never pages here (Sphinx's search page,
-  downloadable examples, `null` paths, scanner noise), and a small remainder are
-  **removed pages with nothing forwarding them**. Only that last group is worth
-  anyone's time, and it is a fraction of what the unjoined list implied;
-  `python3 scripts/aggregate.py --check` prints the current split. The
-  inference holds in one direction only, which is enough: since a server-side
-  redirect records no pageview, a URL that reaches this report is not covered by
-  one, so absence from the CSV means genuinely unforwarded rather than possibly
-  handled elsewhere.
+  Joining the file is what makes the removed-pages table actionable. Pageviews to
+  URLs with no source file split three ways: about half are forwarded by the CSV,
+  most of the rest went to URLs that were never pages here, and a small remainder
+  are **removed pages with nothing forwarding them**. Only that last group is
+  worth anyone's time; `python3 scripts/aggregate.py --check` prints the current
+  split. The inference holds in one direction only, which is enough: since a
+  server-side redirect records no pageview, a URL that reaches this report is not
+  covered by one.
 - **translation reads** — pageviews for the same path summed across all
-  non-English languages, so a page's weight in translation shows up next to its
-  English figure. 35% of reading on the current docs is non-English.
+  non-English languages. 35% of reading on the current docs is non-English. The
+  scatter names the count on hover; it is nowhere else (see *What was tried and
+  cut*).
 
-  Neither the count nor the **share** — translated reading as a multiple of the
-  same page's English figure — is on the page. The count went first: it
-  correlates with English reading at r = 0.92 on log-log, so it carries almost
-  nothing the English column does not, and 42 of the 50 most-read pages in
-  translation are the 50 most-read pages in nearly that order. The share ranks
-  pages differently, at −0.42, and held the column until what it ranks them *by*
-  was checked.
-
-  Two readings were claimed for it, and `data/l10n.json` can test both, since it
-  holds the translated words per page per language that the share was taken to
-  stand for. **The share measures 0.067 against that coverage.** So a low share
-  does not flag a page the translations have not reached — the ten lowest sit at
-  59–79% translated, at or above the manual's 62% median — and a high share does
-  not flag a page where an English rewrite invalidates work in fifteen
-  languages, the ten highest running 44–89% with no pattern. The one page that
-  fit the story, `engine_details/engine_api/vendor_runtime_module` at 0%
-  coverage, is simply new.
-
-  What the share's extremes measure is small denominators. The twenty
-  highest-share pages have a median of 73 pageviews against 609 across the
-  table: `configuring_an_ide/kdevelop` reaches 3.19× on 31 views. Of the 54
-  pages above 1×, 13 clear 300 pageviews and 2 clear 1,000; above 3,000
-  pageviews none do, and the p5–p95 spread closes from 0.24–1.27 to 0.21–0.79.
-  The column was least dramatic exactly where its denominator could be trusted.
-
-  Coverage is the measure those two readings wanted, and it is real: it spreads
-  39% to 93%, correlates 0.46 with traffic — translators do work in demand order
-  — and names pages, `tutorials/networking/high_level_multiplayer` at 53% on
-  6,857 pageviews, `gdscript_exports` at 54% on 5,198. It is not in `docs/data.js`
-  and `aggregate.py` does not read `l10n.json`, so putting it there makes the
-  ~120 MB clone a required input for every build of the report. It also answers
-  a question about *how* to edit an English page rather than whether to, which is
-  a weaker claim on a column than the four that are left. Left undone
-  deliberately, and cheap to add if the translation side ever becomes the
-  question.
-
-  The mechanism was visible a step earlier and read as survivable. Median share
-  by tenth of traffic runs 0.95, 0.75, 0.69, 0.56, 0.54, 0.53, 0.47, 0.51, 0.43,
-  0.57 — a slide of −0.42 against log pageviews, because translated reading is
-  spread more evenly than English reading and the ratio therefore falls as the
-  denominator climbs. That was enough to keep the share out of the scatter's
-  colouring, where it would have drawn the shape of the traffic distribution
-  while appearing to say something about the page. It was not enough to keep it
-  out of the table, because a column is read one page at a time and leaning on
-  traffic looked like a comparison rather than a fault. The argument was
-  reasonable and the conclusion was wrong: what a column is read one page at a
-  time *for* is the thing it measures, and this one had not been checked against
-  anything. The 0.067 is that check, and it is the one that should have come
-  first.
-
-  The scatter still names the raw count on hover, which is a plain fact about a
-  page. The share is not shown anywhere.
-
-  Two joins have to be right for any of that to mean anything.
-
-  *Which version.* The English side is `/en/stable/` alone, so the translated
-  side must be the current docs alone too, or the share is inflated by whatever
-  reading sits on pinned releases. The languages make that awkward: English has
-  `stable` and `latest` and the translations have neither — their current
-  edition is `4.x`, carrying 87% of translated reading against 1,552 views for
-  `stable`, and `/xx/latest/` is scanner noise outside one language. So
-  `fetch.py` decides by exclusion — a pinned release is spelled as a number —
-  and stores two counts per pair: `c` for the current docs, which every share
-  divides by, and `pv` for every version. It matters by a sixth: 130,121 of
-  851,931 translated pageviews are on pinned releases.
-
-  *Which language.* Not recorded by default — the roll-up sums them, and the
-  share above is every non-English language at once. Under `--by-language` the
-  month splits into 31,426 path/language pairs across 46 codes, of which 13 have
-  translations behind them: `fi` is the odd one, 1,618 pageviews across 670 paths
-  with no `sphinx/po/fi` in the l10n repository, and everything below it is typo
-  noise — `jp`, `kr`, `cn`, `ua`, `zn` and a dozen more, single digits over a
-  handful of paths each. Nothing filters them, because a list of real languages
-  would go stale the moment one is added and the noise is ~100 rows of 31,426;
-  they drop out on their own wherever coverage is joined, having no translation
-  files to join to. The codes are spelled as the URL spells them, `zh-cn` and
-  `pt-br`, where the l10n repository spells the same languages `zh_CN` and
-  `pt_BR`; `l10n.py` normalises to the URL form, the traffic side being the one
-  with 46 codes from readers typing whatever they liked.
-
-  *Which path.* Translation paths are keyed on the remainder after
-  `/<lang>/<version>/`, which is *empty* for the manual's landing page — the
-  largest single key in the file. Folding it onto `index.html` is what
-  `load_i18n` does beyond the obvious directory rule, and `TestI18nKeys` pins
-  it. 97% of translated pageviews join to a page; the rest is the same residue
-  the English side has, `search.html` and paths that only ever existed in 3.x.
+  Both sides must count the current docs only, and the translations have neither
+  `stable` nor `latest` — their current edition is `4.x` — so `fetch.py` decides
+  by exclusion, a pinned release being spelled as a number. It matters by a
+  sixth: 130,121 of 851,931 translated pageviews are on pinned releases. Paths
+  are keyed on the remainder after `/<lang>/<version>/`, which is *empty* for the
+  manual's landing page, the largest single key in the file; `load_i18n` folds it
+  onto `index.html` and `TestI18nKeys` pins that. 97% of translated pageviews
+  join to a page.
 - **words** — approximate prose words in the source file. A token counts if it
-  contains a letter (`str.isalpha()`, so non-Latin text counts too); table
-  pipes, bullet markers, rule lines and bare numbers do not. Code is excluded
-  both as directive bodies (`code-block`, `code-tab`) and as literal blocks
-  opened by a trailing `::`; admonition bodies (`note`, `warning`, `tip`,
-  `seealso`, …) *are* counted, being ordinary prose that merely renders as a
-  callout — they are about a tenth of the manual. Roles and inline literals are
-  unwrapped to their text.
-
-  It is a size signal for comparing pages, not a typographic measurement. The
-  earlier version counted raw whitespace tokens and skipped every directive
-  body, which cut both ways: `tutorials/i18n/locales.rst` measured 2.3× its real
-  length because a locale table's pipes counted as words, while
-  `tutorials/xr/xr_action_map.rst` measured 39% short because most of its prose
-  sits in notes. Neither error was visible in the total — the manual moved only
-  +6% overall — but both distorted the pages they hit, which is what the scatter
-  and the footprint bars actually read.
-- **footprint** — how much of the manual a section occupies, measured in words by
-  default. Words approximate what a section costs to keep correct, since review,
-  updating and translation all scale with prose rather than with file count.
-  Page count is offered as a toggle because it answers a different question —
-  how many separate documents a reader moves between — and the two genuinely
-  disagree. Inside `tutorials/`, `shaders/` is level with its readership by page
-  count (6.4% of pages against 6.3% of reading) but well above it by words
-  (9.1%), while `navigation/` is the reverse: 4.8% of pages, 2.7% of words, being
-  many short documents rather than a lot of prose. Pages in the manual range from
-  under 150 words to over 2,000, so the choice is not cosmetic.
-- **change on the month** — a page's pageviews against the month before.
-  Computed, not shown: it was a scatter colouring, then a table column, and it
-  is now neither. Two months is a short baseline: pages under a few hundred
-  views a month move 15% on noise.
-
-  As a colouring it was stated with the whole docs' change divided out, so that
-  in a month when the manual rose 5.7% a page at +5% read as holding its place
-  rather than growing. What killed it there is that the noise and the signal
-  land in the same place. 84% of pages sit within ±20% of the docs' own move,
-  and of the 81 that do not, 61 are below median traffic — the correlation
-  between absolute excess growth and log pageviews is −0.23. So the colouring
-  was loudest exactly where the chart's own caption had to tell the reader to
-  discount it, and it answered a question about last month rather than about
-  what a page costs and returns.
-
-  As a column it kept none of that repair: it was the raw ratio, so the site's
-  own 5.7% sat unsubtracted in every row and a page reading +3% had lost ground
-  without saying so. Sorting by it returned the same small pages the colouring
-  had — of the 30 largest risers, 23 drew under 250 pageviews the month before,
-  against a median of 566 across the table — and four of the top ten were
-  `community/asset_store/`, a section being published rather than a page being
-  read. Half the manual moved less than 8.5% either way. The column was
-  uncorrelated with every column it sat beside, at |ρ| ≤ 0.14, so it was cut
-  for saying too little rather than for repeating a neighbour, which is the
-  rarer reason and the one worth writing down.
-
-  `PREV` stays in the row layout `scripts/aggregate.py` emits, unread. A trend
-  is the version of this worth having, and it wants the other eleven months in
-  `data/raw` rather than a second look at these two.
-- **last edit** — the most recent commit touching the source file, from a single
-  `git log` walk. For the class reference these are bulk sync commits, not
-  authorship, which is one reason it is excluded by default.
-
-  Computed, not shown. It was a scatter colouring until the commits behind it
-  were checked: of the 130 manual pages last edited in the three months to
-  `bca391ae6`, the median was last touched by a commit changing under five lines
-  and 30% by one changing two or fewer — `fix typos in gettext i18n tutorial`,
-  `fixed Visual Studio being typo'd as Visaul Studio`, a six-file sweep replacing
-  asset-library links two lines at a time. "Recently edited" therefore means
-  someone corrected a typo, not that the page was reviewed, and an old date is
-  equally mute, since a page can go untouched because it is still correct. A
-  scale that cannot be read in either direction was worth more as space than as
-  colour — and measuring the size of those commits instead is what **lines
-  changed** below does, which is what the scatter ended up colouring by.
-
-  It survived as a table column on the argument that a date is a fact to look up
-  rather than a scale to read, and that argument does not hold either. Sorting
-  the column newest-first is the use it invites, and what that returns is the
-  typo fixes: of the fifteen most recently edited pages, nine moved ten lines or
-  fewer in the quarter their last edit falls in, and `about/introduction.html`,
-  at 37,096 pageviews the third most-read page in the manual, carries a 2026-06
-  date it earned with a two-line change. Across the whole table 29% of pages
-  were last edited in a quarter that moved two lines or fewer, 60% in one that
-  moved ten or fewer; the median is six lines, 0.007× the page, and 54% fall in
-  the *barely touched* bin the scatter's colouring uses. At the other end the
-  60 pages last edited before the churn window opened already read zero lines
-  changed, so the date adds only how much further back — precision on a signal
-  that was mute to begin with. Six more pages disagree between the two measures,
-  showing zero churn against an edit inside the window, which is what a rename
-  looks like from here.
-
-  The date is still on the scatter's hover, where it is context for a page
-  already chosen rather than an order to choose by.
+  contains a letter (`str.isalpha()`, so non-Latin text counts too); table pipes,
+  bullet markers, rule lines and bare numbers do not. Code is excluded both as
+  directive bodies (`code-block`, `code-tab`) and as literal blocks opened by a
+  trailing `::`; admonition bodies (`note`, `warning`, `tip`, `seealso`, …) *are*
+  counted, being ordinary prose that merely renders as a callout — they are about
+  a tenth of the manual. Roles and inline literals are unwrapped to their text. It
+  is a size signal for comparing pages, not a typographic measurement.
+- **footprint** — how much of the manual a section occupies, in words by default,
+  words being roughly what a section costs to keep correct. Page count is offered
+  as a toggle because it answers a different question, and the two genuinely
+  disagree: inside `tutorials/`, `shaders/` is level with its readership by page
+  count (6.4% against 6.3% of reading) but well above it by words (9.1%), while
+  `navigation/` is the reverse at 4.8% of pages and 2.7% of words.
+- **last edit** — the most recent commit touching the source file. Shown on the
+  scatter's hover only, as context for a page already chosen (see *What was tried
+  and cut*).
 - **lines changed** — source lines added plus deleted over the two years ending
-  at the recorded docs commit, from `git log --numstat -M`. Added and
-  deleted are kept apart, and the table shows the total with the **net** as a
-  bar drawn from the point where the two balance: a page whose net is close to
-  its total was written and runs the bar out to one end, one whose net is near
-  zero was rewritten at its existing length and barely leaves the middle. The
-  two were a pair of columns until it was clear that reading them meant
-  dividing one by the other — the same objection, and the same answer, as the
-  churn grid's own total. Per section the same split separates growth
-  from rework — `tutorials/` added 13,473 lines against 3,623 deleted while
-  `getting_started/` added 225 against 222, the same activity by volume and a
-  different one in kind.
-
-  Against the page's current source length it becomes **turnover**, which is
-  what shades the churn grid and, since a page whose whole two-year history is
-  one typo fix is in the same state as one nobody opened, what colours the
-  scatter. It earns the colour by being the one candidate that does not repeat
-  the axes: across the manual turnover measures −0.09 against log pageviews and
-  0.01 against log words, where translation share measured −0.42 and month-on-
-  month change −0.23. So position says what a page costs and returns, and colour
-  says whether anyone is already working on it. In the long-and-seldom-read
-  corner that splits 103 pages into 17 barely touched and 41 lightly worked
-  against 24 reworked and 21 rewritten outright — the position alone would have
-  handed over all 103.
-
-  The bins are 0.05, 0.3 and 1×. The first is the lower quartile rather than
-  zero exactly, because whether a quiet page caught one passing typo fix is an
-  accident of who walked past it, and splitting at zero left only 3 pages amber
-  in that corner where the quartile leaves 17. The last is nameable rather than
-  fitted — a page changed by its whole length again was rewritten — and is the
-  top eighth. The ratio has no ceiling and short pages swing hardest: a 22-line
-  stub took 175 lines of work and reads as 7.95×, and 38% of barely-touched
-  pages sit in the shortest quarter of the manual against the 25% chance would
-  put there.
+  at the recorded docs commit, from `git log --numstat -M`. The table shows the
+  total with the **net** as a bar drawn from the point where added and deleted
+  balance: a page whose net is close to its total was written and runs the bar
+  out to one end, one whose net is near zero was rewritten at its existing
+  length. Per section the same split separates growth from rework —
+  `tutorials/` added 13,473 lines against 3,623 deleted while `getting_started/`
+  added 225 against 222.
 
   Lines rather than commits, because a commit count cannot tell a typo from a
-  rewrite. Over this window the most-committed hand-written page took 13
-  commits, while the largest single change was 1,822 lines in three of them; the
-  edit-count distribution runs 0–13 with 161 pages tied at one, and the
-  line-churn distribution spans three orders of magnitude with its top decile
-  holding 68% of all changed lines. That is the difference between a ranking
-  that is mostly ties and one that can be read.
+  rewrite: over this window the most-committed hand-written page took 13 commits
+  while the largest single change was 1,822 lines in three of them, and the
+  edit-count distribution has 161 pages tied at one.
 
-  `-M` is not optional, and it is applied twice. Within a commit it stops a move
-  reading as a whole text deleted and an identical text written by nobody. Across
-  the history, a second walk (`--diff-filter=R --name-status`) builds a map of
-  every rename — 846 of them — and each diff is carried forward along that chain
-  to the path its file ended up at, so a page that moved keeps one history rather
-  than two halves filed under two names. Without it a year of churn strands 1,094
-  lines on dead paths, and any longer window strands whole restructures.
+  Renames are followed twice: `-M` within a commit, and a second
+  `--diff-filter=R --name-status` walk that maps all 846 of them across the
+  history so a page that moved keeps one history rather than two halves. Without
+  it a year of churn strands 1,094 lines on dead paths.
+  `_static/redirects.csv` cannot do this job — it maps URLs rather than source
+  paths, and where a page was deleted rather than moved there is no live page to
+  join to.
 
-  **`_static/redirects.csv` cannot do this job**, though it looks as if it
-  should. It maps URLs rather than source paths, it is hand-maintained with
-  nothing checking it, and where a page was deleted rather than moved there is no
-  live page for its history to join to. Git recorded the moves itself.
+  **Two years is the window**, set by what anyone can act on. Four years spans
+  roughly eight minor releases, doubles the columns, and — where a level has more
+  children than fit — fills half the list with pages last worked on in 2023.
+- **turnover** — lines changed against the page's current length. It shades the
+  churn grid and colours the scatter, and it earns the colour by not repeating
+  the axes: across the manual turnover measures −0.09 against log pageviews and
+  0.01 against log words, so position says what a page costs and returns while
+  colour says whether anyone is already working on it. In the
+  long-and-seldom-read corner that splits 103 pages into 17 barely touched and 41
+  lightly worked against 24 reworked and 21 rewritten outright, where position
+  alone would have handed over all 103.
 
-  **Two years is the window**, and it is set by what anyone can act on, not by
-  what git can reach. Four years was built and rejected: it spans roughly eight
-  minor releases, by which point a quiet stretch says nothing a maintainer can do
-  anything about, it doubles the columns, and — where a level has more children
-  than fit — ranking by four years of churn fills half the list with pages last
-  worked on in 2023. In the class reference only 13 of the top 25 rows are the
-  same list under the two windows.
+  The bins are 0.05, 0.3 and 1×: the first is the lower quartile rather than zero
+  exactly, because whether a quiet page caught one passing typo fix is an
+  accident of who walked past it, and the last is nameable rather than fitted, a
+  page changed by its whole length again having been rewritten. The ratio has no
+  ceiling and short pages swing hardest — a 22-line stub took 175 lines of work
+  and reads as 7.95×.
 
-  Four years is where the *data* would stop, if the data were binding. Resolved
-  through the rename chain, the share of each year's changed lines landing on a
-  page still in the tree runs 95% (2022), 96%, 99%, 93%, 95% (2026), then falls
-  to 83% in 2021 and 66% in 2020 — the Godot 4 restructure having removed or
-  rewritten most of what came before. Two years sits well inside that, so the
-  join is not what limits the choice.
+### The churn grid
 
-  The grid follows the path bar like every other chart: its rows are the
-  children of the level you are on, so drilling into `tutorials/` replaces the
-  six sections with the twenty-six things inside it. That is the whole point of
-  it — `tutorials/xr/` took 1,823 lines in one quarter and
-  `tutorials/navigation/` has been silent since July with 15 of its 19 pages
-  untouched, and neither is visible from the top level. Rows are capped at the
-  25 most-edited and what the cap left out is printed underneath, because a
-  level can have a thousand children: inside the class reference, 612 pages
-  changed and 467 of 1,079 did not.
+Rows are the children of the level the path bar is on, capped at the 25
+most-edited with the remainder printed underneath — a level can have a thousand
+children, and inside the class reference 612 pages changed while 467 of 1,079 did
+not. Drilling in is the whole point: `tutorials/xr/` took 1,823 lines in one
+quarter and `tutorials/navigation/` has been silent since July with 15 of its 19
+pages untouched, and neither is visible from the top level.
 
-  Columns are **calendar quarters**, eight of them, ending with the one the
-  docs commit falls in. Calendar-pinned rather than rolled back from the newest
-  month: both are redrawn every month, but rolling boundaries move under the
-  reader, so a figure taken from one run covers a different span in the next and
-  no two runs of the report can be compared. A closed quarter never changes
-  again. The price is that the newest column stops at the docs commit rather than
-  at its own end; it is marked `*` in the header and called out in the caption,
-  because read as a full column it looks like work falling off.
+Columns are **calendar quarters**, eight of them, ending with the one the docs
+commit falls in. Calendar-pinned rather than rolled back from the newest month,
+because rolling boundaries move under the reader and no two runs of the report
+could then be compared. A closed quarter never changes again. The price is that
+the newest column stops at the docs commit rather than at its own end; it is
+marked `*`, because read as a full column it looks like work falling off. Months
+were the first cut and were too fine even over one year: a third of the cells
+were empty and a single piece of work spread across two or three of them.
 
-  Months were the first cut and were too fine even over one year: a third of the
-  cells were empty, a single piece of work spread across two or three of them,
-  and an empty cell recorded the rhythm of when pull requests land rather than
-  anything about the page. Eleven columns still need the grid to abbreviate —
-  `Q3 24` for the headers, `24k` and `1.3k` for the figures, tighter padding and
-  a row label that ellipsises, with the exact number and full name on hover —
-  which brings it to 928 px at every level of the manual. A row read half at a
-  time answers nothing.
+**Shading is churn against the row's current length, on a square root, scaled to
+the darkest cell shown.** Against length, because shading raw counts made a table
+of size: in 2023 H1 `getting_started/` changed 3,531 lines to `tutorials/`'s
+24,229 and was the harder worked of the two, 45% of its own length against 23%.
+Divided by the length *today*, so one divisor per row leaves the row's profile
+untouched. Scaled to what is on screen, because a section almost never changes by
+its whole length in half a year and a fixed 1× anchor spent three quarters of the
+palette on nothing; the cost is that colours redraw when you change section while
+the figures do not. Square root, because the darkest cell is a median of 12.9×
+the median cell across all 63 navigable levels — linear leaves the bulk at a
+tenth of the range, and log darkens the quiet cells until absence stops reading,
+which is what the grid is for.
 
-  **Shading is churn against length, on a square root, scaled to what is on
-  screen.** Three separate decisions, each forced by a way the previous version
-  failed.
+The grid measures activity, not quality and not need. A page nobody has touched
+reads identically whether it is finished or forgotten. Its window also ends at
+the docs commit rather than at the end of the traffic window, and reaches back
+two years where traffic reaches back thirteen months, so the older half of the
+grid has no traffic figure beside it at all.
 
-  *Against length, not raw.* Shading the line counts made a table of size:
-  sections differ by three orders of magnitude and a row's own cells usually by
-  less than one, so the scale spent its range restating what the figures, the
-  ordering and the added column already said — 24,229 sat one shade off 7,851.
-  Dividing by the row's current length makes the colour comparable down a column
-  as well as across a row, and carries what the figures cannot: in 2023 H1
-  `getting_started/` changed 3,531 lines to `tutorials/`'s 24,229 and was the
-  harder worked of the two, 45% of its own length against 23%.
+## What was tried and cut
 
-  *Scaled to the darkest cell shown, not to a fixed 1x.* A section almost never
-  changes by its whole length in half a year — `tutorials/`'s busiest half turned
-  over 23% of it — so anchoring the top of the scale there spent three quarters
-  of the palette on nothing and pushed every section back into the palest end,
-  the same washout reached from the other side. The cost is that the colours
-  redraw when you change section; the figures do not.
+Four things were built far enough to check and then removed. The checks are the
+useful part, so they are kept here.
 
-  *Square root, not linear or log.* The cells are heavy-tailed at every level of
-  the manual: measured across all 63 navigable levels, the darkest cell is a
-  median of 12.9x the median cell and up to 55x. Linear leaves the bulk at a
-  tenth of the range; a log ramp overcorrects and darkens the quiet cells until
-  absence stops reading, which is what the grid is for. Root sits between them —
-  `tutorials/` spans 23–53 across its eight columns where a fixed 1x anchor left
-  it inside 7–23.
+**A translator's view** — for each language, which pages are most read against
+how much of them is still untranslated. Abandoned at the point of drawing it,
+because **translators are already working in demand order**: across the
+mid-coverage languages the correlation between a page's reading and its coverage
+runs 0.44 to 0.60 (ja 0.60, es 0.50, fr 0.45, pt-br 0.44), and their top decile by
+demand is 75–85% translated against 30–44% overall. The recommendation would also
+have been obvious — 13 of Japanese's top 20 by reading per remaining word are
+`getting_started/` — and the ranking degenerates exactly where coverage is lowest:
+for Polish, at 5% translated, the top entries are two-word index stubs with five
+readers, because a small denominator wins a ratio. `scripts/l10n.py` and
+`fetch.py --by-language` are kept dormant; reproduce by joining the two.
 
-  Shading against each row's own busiest period was the other candidate and is
-  worse than any of these: it throws away every comparison between rows, so one
-  20-line edit to a dead section renders exactly as hot as `tutorials/` at its
-  peak. The divisor is the length **today**, not at the time — one divisor per
-  row leaves the row's profile untouched, where a per-period divisor would bend
-  the very shape the row exists to show.
+Two findings from it survive:
 
-  Version cycles were the other candidate and they lose. Boundaries are
-  derivable from the repo (each `upgrading_to_godot_4.x.rst` is created near the
-  start of its cycle: 4.5 on 2025-09-13, 4.6 on 2026-01-20, 4.7 on 2026-06-18),
-  but the durations run 2.4, 4.2, 4.9 and 0.2 months, and a six-day newest column
-  reads as either nothing happening (raw) or a tenfold spike (per month) with
-  neither being true — the whole `community/` burst lands inside it. The column
-  set would also change shape whenever a new upgrade guide lands, and the
-  boundary itself is an inference about what that file's creation date means.
+- **Counting strings overstates progress, worst where the work is.** A string
+  count is what `msgfmt --statistics` reports; a translator spends words. Short
+  strings get translated first, so the two diverge systematically and in the same
+  direction — `tutorials/2d/index` reads 67% done by string and 9% by words,
+  because its four translated strings are `2D`, `Rendering`, `Physics and
+  movement` and `Tools` while the two left carry 62 of the page's 68 words. It
+  held on every page and language checked and converges only once a page is
+  finished. Weblate tracks word statistics too, so this is a caution about how a
+  percentage is read rather than a defect in anyone's tooling.
+- **A sixth of the remaining work is on pages nobody reads in that language.**
+  Between 6% and 27% of each language's untranslated words sit on pages with zero
+  readers in it over the month — 27% for Italian, 15% Polish, 13% German. A stop
+  signal rather than a start signal, and invisible in Weblate.
 
-  The class reference follows the same corpus choice as everywhere else rather
-  than being special-cased out, but its rows mean something different: those
-  pages sync in bulk from the engine's source, so their diffs are the size of
-  whatever the engine changed — 77% of all edited lines, with nobody having
-  written a sentence.
+**Translation share** — translated reading as a multiple of the same page's
+English figure. It was a table column until what it ranks pages *by* was checked
+against the coverage in `data/l10n.json`: **the share measures 0.067 against
+it.** So a low share does not flag a page the translations have not reached — the
+ten lowest sit at 59–79% translated, at or above the manual's 62% median — and a
+high share does not flag a page where an English rewrite would invalidate work in
+fifteen languages. What its extremes measure is small denominators: the twenty
+highest-share pages have a median of 73 pageviews against 609 across the table.
 
-  It measures activity, not quality and not need. A page nobody has touched
-  reads identically whether it is finished or forgotten, and nothing in this
-  data separates those two; the grid is a map of where work happened, not a list
-  of what to do next.
+Coverage is the measure those readings wanted, and it is real: it spreads 39% to
+93% and correlates 0.46 with traffic. It is not in `docs/data.js`, since adding
+it would make the ~120 MB l10n clone a required input for every build.
 
-  Its window ends at the docs commit, not at the end of the traffic window, so
-  the newest column is a part-period and can lag the newest traffic month by
-  weeks. The two spans are not aligned and are not comparable period for period —
-  and churn reaches back two years where traffic reaches back thirteen months,
-  so the older half of the grid has no traffic figure beside it at all.
+**Change on the month** — a page's pageviews against the month before, computed
+by `aggregate.py` and shown nowhere. Two months is a short baseline: pages under
+a few hundred views a month move 15% on noise, and 84% of pages sit within ±20%
+of the docs' own move. Sorting by it returned the smallest pages — of the 30
+largest risers, 23 drew under 250 pageviews the month before, against a median of
+566 across the table. It was uncorrelated with every column it sat beside at |ρ|
+≤ 0.14, so it was cut for saying too little rather than for repeating a
+neighbour. `PREV` stays in the row layout, unread; a trend is the version worth
+having, and it wants the other eleven months in `data/raw`.
+
+**Last edit as a scale** — a date sorted or coloured by. Of the 130 manual pages
+last edited in the three months to `bca391ae6`, the median was last touched by a
+commit changing under five lines and 30% by one changing two or fewer. "Recently
+edited" therefore means someone corrected a typo, and an old date is equally
+mute, since a page can go untouched because it is still correct.
+`about/introduction.html`, the third most-read page in the manual, carries a
+2026-06 date it earned with a two-line change. Measuring the size of those
+commits instead is what **lines changed** does.
 
 ## Runbook
 
@@ -632,31 +352,28 @@ open docs/index.html                    # no server needed
 Afterwards, `python3 scripts/fetch.py incremental` fetches only months not
 already stored, always refreshing the newest.
 
-Tests: `python3 -m unittest discover tests`. They cover URL canonicalisation,
-the rst parsers, and the invariants the page depends on —
-including a check that no identity-derived number reaches the page, and one that
-per-visitor figures are still implausible, so if the instance is ever fixed the
-suite says so instead of the constraint quietly outliving its reason. Where the
-CSV export is present they also cross-check page totals against it, since it was
-produced independently of the API path.
+Tests: `python3 -m unittest discover tests`. They cover URL canonicalisation, the
+rst parsers, and the invariants the page depends on — including a check that no
+identity-derived number reaches the page, and one that per-visitor figures are
+still implausible, so if the instance is ever fixed the suite says so instead of
+the constraint quietly outliving its reason. Where the CSV export is present they
+also cross-check page totals against it, since it was produced independently of
+the API path.
 
 ### Verifying the page
 
 One part of `docs/app.js` is covered: `deno test --allow-read tests/` runs the
-churn grid's renderer against the data the page ships, on a DOM stub small
-enough to read. It exists because the grid states its case in the cell shading,
-and shading is set through a style string — an alpha of `NaN` is not an error in
-a browser, so the declaration is dropped, every cell goes white, and the page
-carries on. That is what happened when a refactor took the `top` declaration out
-along with the comment above it and the name resolved to `window.top`: no
-console output, nothing for `deno check` to see. Free names in the stub resolve
-against Deno's globals rather than a browser's, which is the stricter half of
-what the file is for.
+churn grid's renderer against the data the page ships. It exists because shading
+is set through a style string, and an alpha of `NaN` is not an error in a
+browser — the declaration is dropped, every cell goes white, and the page carries
+on. That is what happened when a refactor took a `top` declaration out and the
+name resolved to `window.top`: no console output, nothing for `deno check` to
+see.
 
-**The rest of the page is not covered.** Everything else above runs against the
-Python payload, and the payload has been right every time the page was wrong.
-The chart bug that made the section chart's reading bars sum to 89.6% instead of
-100% lived entirely in JavaScript grouping logic and no test could see it.
+**The rest of the page is not covered.** Everything else runs against the Python
+payload, and the payload has been right every time the page was wrong. The bug
+that made the section chart's reading bars sum to 89.6% instead of 100% lived
+entirely in JavaScript grouping logic.
 
 Headless Chrome renders `file://` directly, which is enough to check both that
 the page runs and what it computed:
@@ -668,21 +385,18 @@ CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 ```
 
 The dumped DOM carries everything `app.js` wrote into the document — the stat
-tiles, both tables, the generated captions — so those can be asserted directly.
-Chart contents live in canvas and need one extra step: copy `index.html`, append
-a script that reads `Chart.getChart("chart-sections").data` into a `<pre>`, dump
-that instead, and delete the copy. That is how the 89.6% was found, and it is
-worth repeating after any change to the charts.
+tiles, both tables, the generated captions. Chart contents live in canvas and
+need one extra step: copy `index.html`, append a script that reads
+`Chart.getChart("chart-sections").data` into a `<pre>`, dump that instead, and
+delete the copy. That is how the 89.6% was found, and it is worth repeating after
+any change to the charts.
 
 Two cautions. Chrome's stderr carries `ERROR:gpu/...` lines in headless mode that
-have nothing to do with the page, so grepping stderr for "error" gives false
-positives. And the path bar's menus are built when opened and removed when
-closed, so a dump never contains one — assert on the sections a menu would list,
-which is `menuItems(section)`, rather than on the markup.
+have nothing to do with the page. And the path bar's menus are built when opened
+and removed when closed, so a dump never contains one — assert on
+`menuItems(section)` rather than on the markup.
 
-Not yet automated. A `scripts/check_page.py` wrapping the above and asserting a
-few invariants (section shares summing to 100% across several hash states) would
-close the gap; it would need Chrome present, so it would sit outside the unit
-suite.
+Not yet automated: a `scripts/check_page.py` wrapping the above would close the
+gap, and would sit outside the unit suite since it needs Chrome present.
 
 Licensed [MIT](LICENSE).

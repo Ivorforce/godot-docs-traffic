@@ -211,21 +211,20 @@
   · <a href="#caveats">caveats</a>
 </p>
 <p class="framing">Which parts of the Godot manual carry the reading, and which
-cost more to maintain than their readership suggests. Built by joining page
-traffic against the <a href="https://github.com/godotengine/godot-docs">godot-docs</a>
-source tree, so page length and last-edit date sit next to the traffic rather
-than traffic standing alone. It is a map for people who maintain the docs — not a
-scoreboard, and not a list of pages to delete.</p>
+cost more to maintain than their readership suggests. Page traffic is joined
+against the <a href="https://github.com/godotengine/godot-docs">godot-docs</a>
+source tree, so page length and edit history sit next to the traffic. It is a map
+for people who maintain the docs — not a scoreboard, and not a list of pages to
+delete.</p>
 
 <p id="error" hidden></p>
 
 <div class="stats" id="stats"></div>
 <p class="caption">The English <code>/en/stable/</code> docs over
-<span class="period-inline">…</span>. Everything from the path bar down to the
-page-by-page table follows the section you select there, and the sections after
-it are fixed. These totals follow only the path bar's first choice, of which body of
-pages is in view: the hand-written manual, the manual with the class reference
-counted in, or the class reference on its own.</p>
+<span class="period-inline">…</span>. The path bar below sets what everything
+down to the page-by-page table is about; these totals follow only its first
+choice — the hand-written manual, the manual with the class reference counted in,
+or the class reference on its own.</p>
 
 <div class="controls">
   <span class="crumbs" id="crumbs"></span>
@@ -239,28 +238,20 @@ counted in, or the class reference on its own.</p>
 </h2>
 <div class="chart-box tall"><canvas id="chart-sections"></canvas></div>
 <p class="caption" id="sections-note"></p>
-<p class="caption">For each part of the manual, the share of reading it receives
-against the share of the manual it occupies. Use the path bar above to move
-between sections; hover a bar for the underlying counts and for pageviews per
-thousand words. Where the grey bar runs past the blue one, that part is larger
-than its readership — a question worth asking, not an answer: reference material
+<p class="caption">For each part of the manual, its share of all reading against
+its share of the manual's size. Hover a bar for the counts and for pageviews per
+thousand words. The two bars are shares of <em>different</em> totals, so read the
+gap as a ratio: a section at half its share of reading is read half as much per
+word as the manual overall.</p>
+<p class="caption">Where the grey bar runs past the blue one, that part is larger
+than its readership — a question worth asking, not an answer. Reference material
 is <em>supposed</em> to be consulted rarely, and a section can be long because
 the subject is hard.</p>
-<p class="caption">The two bars are percentages of <em>different</em> totals —
-one of all pageviews, one of all the manual's words — so the distance between
-them is a ratio, not a subtraction. A section at half its share of reading is
-read half as much per word as the manual overall, whether the bars read 4% and
-8% or 40% and 80%.</p>
-<p class="caption">Footprint is measured in <strong>words</strong> by default,
-because that is roughly what a section costs to keep correct — review, updating
-and translation all scale with prose, not with file count. Page count answers a
-different question, about how many separate documents a reader has to move
-between, and the two disagree: a section of many short pages looks large by page
-count and modest by words, and a section of a few long ones the other way round.
-Across the manual, pages range from under 150 words to over 2,000. The class
-reference is excluded by default from both, being generated from the engine's own
-source rather than written or trimmed here; the path bar's first entries count it
-in, or show it on its own.</p>
+<p class="caption">Footprint is <strong>words</strong> by default, roughly what a
+section costs to keep correct, since review, updating and translation all scale
+with prose. <strong>Pages</strong> answers a different question — how many
+separate documents a reader moves between — and the two disagree. The class
+reference is excluded unless the path bar's first entries put it back.</p>
 
 <h2>What each page costs and returns</h2>
 <div class="chart-box square"><canvas id="chart-scatter"></canvas></div>
@@ -271,42 +262,19 @@ low and to the right are read a lot and say little; pages high and to the left
 are long and seldom read — the ones worth <em>looking at</em>, since length is
 roughly what a page costs to keep correct. Hover a point for the page; click to
 filter the table below to it.</p>
-<p class="caption">Colour finishes the question the position starts: whether
-anyone is already working on it — lines changed over the churn window
-(<span class="churn-window">…</span>) against the page's length now, the same
-measure that shades the grid further down. Read the <strong>pale</strong> end as
-the quiet end. A page high and to the left and pale is the one to look at: long,
+<p class="caption">Colour is lines changed over the churn window
+(<span class="churn-window">…</span>) against the page's length now — whether
+anyone is already working on it, the same measure that shades the grid further
+down. <strong>Pale</strong> is the quiet end: a page high, left and pale is long,
 seldom read, and nobody has been near it in two years. The same page in
 <strong>dark blue</strong> is somebody else's project already, and the useful
 thing to do about it is nothing.</p>
-<p class="caption">In the long-and-seldom-read corner the split is roughly even —
-of 103 pages there, 17 are barely touched and 41 lightly worked, against 24
-reworked and 21 rewritten outright. That is the whole use of the colour: the
-position alone would have handed over all 103.</p>
-<p class="caption">Colour was chosen for what it is <em>not</em>: it does not
-repeat the axes. Turnover measures −0.09 against reading and 0.01 against length
-across this manual, so a point's colour is genuinely a third fact about it.
-Month-on-month change and translation share were both tried here and both leaned
-on the horizontal axis — translation share slides from 0.95× in the least-read
-tenth of pages to about 0.45× in the most-read, which paints the traffic
-distribution rather than the page. Neither is in the table below either, and for
-a stronger reason than the one that kept them out of here: month-on-month change
-over two months says less about a page than about the site's own weather, and
-translation share turned out not to measure what it was taken to. It was read as
-saying which pages the translations had reached and which ones an English
-rewrite would cost work — against the translated coverage this project measures
-separately it scores 0.067, so it says neither.</p>
-<p class="caption">Short pages swing, and the ratio has no ceiling: a 22-line
-stub can take 175 lines of work and read as 7.95×, where a 500-line page would
-need a rewrite half as large again to pass 1×. They crowd both ends accordingly:
-38% of the barely-touched sit in the shortest quarter of the manual, where chance
-would put 25%. Read the colour of a small point as the coarse signal it is. A
-page can also be quiet because it is finished — the measure records that nobody
-has needed to change it, and cannot say whether that is because it is right or
-because nobody looked. When the path bar puts the class
-reference back, the colours mean something else again: those pages are synced in
-bulk from the engine's source, so their turnover is the size of whatever the
-engine changed.</p>
+<p class="caption">A quiet page may be finished rather than forgotten; nothing
+here separates those. Short pages swing hardest, so read the colour of a small
+point as the coarse signal it is. When the path bar puts the class reference
+back, the colours mean something else again: those pages sync in bulk from the
+engine's source, so their turnover is the size of whatever the engine
+changed.</p>
 <p class="caption" id="concentration"></p>
 
 <h2>Where the docs are being written</h2>
@@ -316,83 +284,29 @@ engine changed.</p>
 (<span class="churn-window">…</span>) — added and deleted counted together, from
 the git history of the docs source. Figures are rounded (<code>24k</code>,
 <code>1.3k</code>); hover any cell for the exact one. Rows follow the path bar,
-the same as the charts above: at the top level they are the parts of the manual,
-and drilling into one replaces them with what is inside it, so a section's quiet
-corners can be found the same way its busy ones can. This is a record of where
-effort went, not a ranking: it says what was worked on, and cannot say what
-should have been. Empty cells are the reason it is here — a part of the docs
-untouched for a quarter is worth knowing about, and it is the one thing here the
-pull request feed does not show.</p>
-<p class="caption">The figures are lines; the <strong>shading</strong> is those
-lines measured against how long that row is now, so it says something the figures
-do not. In the first half of 2023 <code>getting_started/</code> changed 3,531
-lines against <code>tutorials/</code>'s 24,229 and was the harder worked of the
-two, turning over 45% of its own length where tutorials turned over 23% of its.
-Read the colour in both directions; read the figures for how much work that
-actually was.</p>
-<p class="caption">The darkest cell is the most intensively changed one
-<em>currently shown</em>, not a fixed mark, and the ramp is a square root.
-Sections almost never change by their whole length in a quarter, and the cells
-are heavily lopsided at every level — the busiest is typically thirteen times a
-middling one — so a scale pinned to either end left nearly every cell in the
-palest tenth of it. Because the top of the scale moves with what is on screen,
-the colours redraw when you change section; the numbers do not. Dividing by the
-length today rather than the length at the time is deliberate: one divisor for a
-whole row leaves its profile intact, where a moving one would bend the shape the
-row exists to show.</p>
-<p class="caption">Columns are calendar quarters, not the last eight counted
-back from today, so a closed column never changes again and two versions of this
-report can be compared. A <strong>rule</strong> runs down the grid where each
-year begins, so a cell can be placed in time without reading back along the
-header. The price is the last column, marked <strong>*</strong>:
-it stops at the docs commit rather than at the end of its quarter, so it is short
-by however much of the period is still to come and a fall at the right edge may
-be nothing but that. Quarters rather than months because months were too fine —
-a third of the cells were empty and one piece of work spread across two or three
-of them, so an empty cell recorded the rhythm of when pull requests land rather
-than anything about the page.</p>
-<p class="caption">Measured in lines rather than commits, because a commit counts
-a typo fix and a rewrite alike: the most-committed page of the last year took 13
-commits, while the single largest change was 1,822 lines in three of them.
-Renames are followed to where a file ended up, so a page that moved keeps one
-history instead of two halves filed under two names — 846 of them across this
-manual's history, without which the 2022 restructure would read as whole sections
-deleting themselves into others. Two years is a choice about what anyone can
-act on rather than a limit of the data: four years was tried, reaches back some
-eight minor releases, and where a level has more rows than fit it filled half the
-list with pages last worked on in 2023.</p>
-<p class="caption">The last column is the row's whole window rather than one
-quarter of it — the figure the rows are ordered by — and the bar beside it is
-that work drawn out from the point where added and deleted balance: to the
-right for a section that came out longer, to the left for one that came out
-shorter, and as far as the work tipped that way. A bar filling its half is
-material that was only written or only removed; a stub either side of the line
-is a section reworked at the length it already had, which is a different
-activity and often a more careful one. Hover for the figures, including the
-net.</p>
-<p class="caption">Which side a row falls on is worth the ink because it is
-rare and does not show at this level: no top-level section has shrunk over the
-window, but drill in and 63 of the 512 rows the report can reach run the other
-way, in three of every five sections. It is also the one thing about a row that
-the figures cannot be read for — neither the total nor the quarters say
-anything about it — so the bar is where it has to live. Green runs out and red
-runs back, repeating what the direction already says so that a bar four pixels
-long is still caught at a glance. Read red as <em>shorter</em> and not as
-<em>worse</em>: trimming and merging are among the things this report was built
-to find, and a page that lost lines may be the one that went right.</p>
-<p class="caption">One reason the bars lean right so consistently — the manual
-runs at <span class="churn-balance">…</span> of every changed line added — is
-that pages deleted outright are not in this table, being no longer part of the
-docs, and they were the one deletion-heavy thing in the history: 42 hand-written
-pages went, 8,424 deleted lines against 2,030 added. Counted back in the manual
-runs at 68% added, so every bar here sits a little further right than the docs
-really went.</p>
-<p class="caption">The class reference follows the same choice as everywhere
-else on this page — left out until the path bar's first entries put it back, or
-show it alone — but read its rows differently when it is in: those pages are
-generated from the engine's source and synced in bulk, so their diffs are the
-size of whatever the engine changed rather than of anything anyone wrote. They
-are three quarters of all edited lines.</p>
+the same as the charts above, so drilling into a section replaces them with what
+is inside it. Empty cells are the reason it is here: a part of the docs untouched
+for a quarter is the one thing the pull request feed does not show.</p>
+<p class="caption">The <strong>shading</strong> is those lines against how long
+the row is now, so it says something the figures do not. In the first half of
+2023 <code>getting_started/</code> changed 3,531 lines against
+<code>tutorials/</code>'s 24,229 and was the harder worked of the two, turning
+over 45% of its own length where tutorials turned over 23%. The darkest cell is
+the most intensively changed one <em>currently shown</em>, not a fixed mark, so
+the colours redraw when you change section; the numbers do not.</p>
+<p class="caption">Columns are calendar quarters, so a closed one never changes
+again and two versions of this report can be compared. A <strong>rule</strong>
+marks where each year begins. The last column, marked <strong>*</strong>, stops
+at the docs commit rather than at the end of its quarter, so a fall at the right
+edge may be nothing but that.</p>
+<p class="caption">The final column is the row's whole window, and the bar beside
+it draws added against deleted from the point where the two balance: right for a
+section that came out longer, left for one that came out shorter. A bar filling
+its half was only written or only removed; a stub either side is a section
+reworked at the length it already had. Read red as <em>shorter</em> and not as
+<em>worse</em> — trimming and merging are among the things this report was built
+to find. Pages deleted outright are not in this table, so every bar sits a little
+further right than the docs went.</p>
 
 <div class="table-head">
   <h2>Page by page <span id="table-scope"></span></h2>
@@ -406,62 +320,36 @@ are three quarters of all edited lines.</p>
     <tbody></tbody>
   </table>
 </div>
-<p class="caption">The scatter above, read one page at a time: its two axes and
-its colouring, which is all this report has to say about a single page. Sorted
-by reading volume; click a column to re-sort, and use the filter box beside the
-heading to narrow by path — it reaches this table and nothing else on the page.
+<p class="caption">The scatter above, read one page at a time. Sorted by reading
+volume; click a column to re-sort, and use the filter box beside the heading to
+narrow by path — it reaches this table and nothing else on the page.
 <em>Words</em> approximates the prose in the source file — notes and warnings
-counted, code blocks and table markup not — for comparing pages against each
-other rather than as a typographic measure. <em>Lines changed</em> is this page's
+counted, code blocks and table markup not. <em>Lines changed</em> is this page's
 share of the churn above, over <span class="churn-window">…</span>, with the same
-bar the grid draws: how far the work tipped from the point where added and
-deleted balance, right for a page that grew and left for one that shrank. A bar
-run out to one end is a page that was written; a short one is a page that was
-rewritten at the length it already had, and the figures behind it are on
-hover.</p>
-<p class="caption">Four columns is what survived asking of each one what a
-maintainer would do differently for having read it. A page's translated reading,
-its change on the month and the date it was last edited were all here and are
-all gone: the share did not measure what it was read as measuring, change on the
-month ranked pages by their own smallest denominators, and a date cannot be read
-in either direction, since an old one is a page that is finished or a page nobody
-has revisited and a recent one is usually a typo. This report's own README keeps
-the figures behind each of those, because all three were reasonable to expect and
-the checks are the useful part.</p>
+bar the grid draws; the figures behind it are on hover.</p>
 
 <h2>Getting started, tutorial by tutorial</h2>
-<p class="caption">The sections from here on are fixed: the path bar above does
-not reach them, because each answers a question about a named part of the site
-rather than about whichever part is selected.</p>
 <div class="chart-box tall"><canvas id="chart-funnel"></canvas></div>
 <p class="caption">The four tutorials of the getting-started guide, in the order
 the docs present them, each page measured against its own tutorial's landing
-page. The order and the grouping are read from the table of contents, so a
-restructure moves this chart instead of breaking it. Hover a point for the page
-and the count behind its percentage. The guide is a third of all reading in the
-hand-written manual, a quarter once the class reference is counted in.</p>
+page. Order and grouping come from the table of contents, so a restructure moves
+this chart instead of breaking it. Hover a point for the page and the count
+behind its percentage. The guide is a third of all reading in the hand-written
+manual. This section and the next are fixed — the path bar does not reach
+them.</p>
 <p class="caption" id="funnel-note"></p>
-<p class="caption">Each tutorial is drawn against its own landing page because
-the four are far apart in absolute reading — the 2D game is roughly three times
-the 3D one — and on a shared scale the smaller two flatten into the axis with
-their shape still in them. The percentages are <em>not</em> conversion, and the
-landing page is a denominator rather than a door: readers arrive from search at
-any step and leave whenever they have what they came for. A step above 100%
-would mean people entered there, not that readers multiplied.</p>
-<p class="caption">All four decline broadly in the order the docs set, but the
-step-to-step comparisons are looser than the overall shape and should be read
-that way. The 3D game's later steps sit between 1,400 and 2,500 pageviews, where
-a few hundred either way is a visible part of the line, and small recoveries at
-step 3 and step 5 appear in both game tutorials without meaning much. The trend
-across a tutorial is the reliable part; the gap between two neighbouring points
-is not.</p>
+<p class="caption">The percentages are <em>not</em> conversion, and the landing
+page is a denominator rather than a door: readers arrive from search at any step
+and leave whenever they have what they came for, so a step above 100% means
+people entered there. The trend across a tutorial is the reliable part; the gap
+between two neighbouring points is not, since a few hundred pageviews either way
+is a visible part of the line.</p>
 <p class="caption">One departure is too large to read that way.
 <code>signals.html</code>, the last step of <code>step_by_step</code>, draws
 more than the two steps before it — 14,397 pageviews against 8,660 and 5,987.
-Position cannot explain that and direct arrival probably can: it is a concept
-people come looking for by name rather than one they reach by working forward.
-It is the only page in the guide whose reading the sequence does not account
-for, which makes it the one worth treating as an entrance in its own right.</p>
+Direct arrival probably explains it: a concept people come looking for by name
+rather than one they reach by working forward. It is the one page in the guide
+worth treating as an entrance in its own right.</p>
 
 <h2>Removed pages with no redirect</h2>
 <table id="stale-table">
@@ -471,86 +359,63 @@ for, which makes it the one worth treating as an entrance in its own right.</p>
 <p class="caption" id="stale-caption"></p>
 <p class="caption">Pages that were removed from the manual, still receive
 traffic, and are not forwarded anywhere — so these readers land on the
-&ldquo;page not found&rdquo; page and have to start over. Most removed pages
-<em>are</em> forwarded, by
-<a href="https://github.com/godotengine/godot-docs/blob/master/_static/redirects.csv"><code>_static/redirects.csv</code></a>,
-and those are left out of this table: their readers arrive where they meant to.
-This list is what the redirects file does not yet cover. A date inside the
-reporting period means the page was readable for part of it, so its count is
-partly ordinary reading rather than missed arrivals.</p>
+&ldquo;page not found&rdquo; page and have to start over. This list is what
+<a href="https://github.com/godotengine/godot-docs/blob/master/_static/redirects.csv"><code>_static/redirects.csv</code></a>
+does not yet cover; most removed pages <em>are</em> forwarded by it and are left
+out. A date inside the reporting period means the page was readable for part of
+it, so its count is partly ordinary reading rather than missed arrivals.</p>
 <p class="caption">Read the Docs applies its own redirects before the page
-renders, so those never reach this report at all — which is why absence from
-this table means forwarded or never removed, not unmeasured. The redirects file
-is read at the docs commit shown at the top of the page; entries added since
-then will still appear here.</p>
+renders, so those never reach this report at all — absence from this table means
+forwarded or never removed, not unmeasured. The redirects file is read at the
+docs commit shown at the top of the page.</p>
 
 <footer id="caveats">
   <strong>Caveats</strong>
   <ul>
     <li><strong>Everything here is pageviews.</strong> Per-visitor and per-session
         figures — unique visitors, bounce rate, session duration — are not
-        reliable on this analytics setup and are used nowhere. The same setup
-        offers neither scroll depth nor time on page, so there is no engagement
-        signal available at all: nothing here claims to measure whether a page
-        was <em>useful</em>, only how often it was opened.</li>
+        reliable on this analytics setup and are used nowhere. It offers neither
+        scroll depth nor time on page, so there is no engagement signal at all:
+        nothing here measures whether a page was <em>useful</em>, only how often
+        it was opened.</li>
     <li>Analytics run on JavaScript. Bots, LLM crawlers, readers with scripts
         blocked, and everyone reading the docs offline or in the editor's built-in
-        help are invisible. Counts are humans-with-JavaScript only, and the docs
-        are read in all of those other ways.</li>
+        help are invisible — and the docs are read in all of those ways.</li>
     <li>A URL counts as a page only if it resolves to a source file in
         godot-docs at the commit shown above. That drops removed pages, Sphinx's
         search page and scanner noise — about 2% of raw pageviews, accounted for
         under "removed pages with no redirect" so the loss is visible rather
         than silent. Roughly half of it is readers being successfully forwarded
-        by the docs' own redirects, which record a pageview at the old URL
-        before sending them on.</li>
+        by the docs' own redirects.</li>
     <li><strong>Low traffic is not low value.</strong> A page read a few hundred
-        times a month may be the one that unblocks a contributor, documents the
-        thing nobody else wrote down, or matters precisely because it is
-        rarely needed. Every page of the manual was read at least once this
-        period — there is no dead weight to find here, only proportion. Every
-        chart on this page proposes candidates for a human to look at, and none of
-        them is a recommendation to delete anything.</li>
-    <li>Word count and last-edit date come from the docs source tree as it is
-        today, not as it was during the traffic window. A page rewritten last week
-        shows last week's date against a month of traffic.</li>
-    <li><strong>A recent last edit does not mean a page was reviewed.</strong>
-        Of the 130 manual pages last edited in the three months to the commit
-        above, the median one was last touched by a commit changing under five
-        lines, and 30% by one changing two or fewer — typo corrections and link
-        sweeps. An old date is no clearer, since a page can be untouched because
-        it is still correct. The column is a lookup for a single page, which is
-        why nothing on this page is sorted, coloured or ranked by it.</li>
+        times a month may be the one that unblocks a contributor, or matters
+        precisely because it is rarely needed. Every page of the manual was read
+        at least once this period — there is no dead weight to find here, only
+        proportion. Every chart proposes candidates for a human to look at, and
+        none is a recommendation to delete anything.</li>
+    <li>Word counts and edit dates come from the docs source tree as it is today,
+        not as it was during the traffic window. A recent edit date is also no
+        sign a page was reviewed: most are typo corrections and link sweeps,
+        which is why nothing here is sorted or ranked by date.</li>
     <li><strong>Lines changed is a measure of activity, not of quality or of
-        need.</strong> It counts what was edited, so a page nobody has touched
-        reads the same whether it is correct and finished or forgotten — and
-        nothing in this data separates those two. It also has no view on whether
-        the edit was an improvement. Read it as a map of where work happened,
-        never as a list of what to work on next.</li>
-    <li>The churn window ends at the docs commit shown at the top of the page,
-        which is not the end of the traffic window: the source tree is read when
-        the inventory runs and the traffic when the fetch does, so the newest
-        churn column is a part-period and may lag the newest traffic month by
-        weeks. The two spans are not aligned and should not be compared period
-        for period. Churn also reaches back two years where traffic reaches
-        back thirteen months, so the older half of the grid has no traffic
-        figure beside it at all.</li>
+        need.</strong> A page nobody has touched reads the same whether it is
+        correct and finished or forgotten, and nothing in this data separates
+        those two. Read it as a map of where work happened, never as a list of
+        what to work on next.</li>
+    <li>The churn window ends at the docs commit shown above, not at the end of
+        the traffic window, so the newest churn column is a part-period and the
+        two spans should not be compared period for period. Churn also reaches
+        back two years where traffic reaches back thirteen months.</li>
     <li>The class reference is generated from the engine's source and synced in
         bulk, so its git dates record sync commits rather than anyone writing.
         For that reason the report opens on the manual without it; the path
         bar's first entries count its 1,079 pages in, or open the report on
-        them alone — a corpus of its own rather than a section of the manual,
-        with no sections inside it and every figure on the page then about it.</li>
-    <li>Only English <code>/en/stable/</code> pages are shown in detail.
-        Translation reads are summed across all other languages per page, and
-        both sides count the current docs only, so the share compares like with
-        like. That takes some care, because the languages do not name their
-        versions alike: English has <code>stable</code> and <code>latest</code>,
-        both English-only, while the translations have neither and the edition
-        their language switcher points at is <code>4.x</code>. Pinned releases
-        (<code>/en/4.7/</code>, <code>/ja/4.5/</code> and older) are excluded on
-        both sides — 130,121 pageviews of translated reading, a sixth of it,
-        named in the tile above and in no share on this page.</li>
+        them alone.</li>
+    <li>Only English <code>/en/stable/</code> pages are counted in detail.
+        Translated reading is summed across all other languages per page. Both
+        sides count the current docs only — pinned releases like
+        <code>/en/4.7/</code> and <code>/ja/4.5/</code> are excluded, a sixth of
+        translated reading, named in the tile above.</li>
   </ul>
   <p>Aggregated from Godot's self-hosted Plausible instance. Scripts, metric
      definitions and raw data live in the repository; the page reads a single
