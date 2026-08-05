@@ -11,16 +11,19 @@ gitignored until the publishing clearance in the README, so running this script
 once is what a fresh clone needs before aggregation and the site work.
 
 What is stored, and why not simply everything: the docs site serves ~87k distinct
-URLs a month across 15 languages and a dozen versions. Keeping that per-page for
-every *month* would put ~85 MB of mostly-noise in git. So thirteen months of
-per-page detail are stored for English only — the source of truth for editorial
-decisions — and the other languages are stored per (path, language) for the one
-newest month, which is what the translation view reads.
+URLs a month across 46 language codes and a dozen versions. Keeping that per-page
+for every month would put ~85 MB of mostly-noise in git. So per-page detail is
+stored for English only (the source of truth for editorial decisions), and the
+other languages are rolled up per path — enough to show that a page carries
+weight in translation without shipping fifteen parallel tables.
 
-The versions are what get rolled up rather than the languages. A language is a
-different readership with its own coverage and its own priorities, and summing
-them was what stopped the report saying anything a translator could act on; a
-pinned release is the same readership on an older copy of the same page.
+`--by-language` keeps the language instead of summing it away, at 2.2 MB against
+519 KB for the one month that carries the roll-up. It costs no extra requests —
+the rows are already being paged for the English side — but nothing on the page
+reads it, so it is off. It exists because the report cannot answer a per-language
+question without it and no downstream work recovers a dimension discarded here;
+see the translation section of the README for what was asked of it and why the
+answer did not warrant a page.
 """
 
 import argparse
@@ -81,12 +84,15 @@ def fetch_site_daily(client, first, last):
     print(f"  site-daily: {len(rows)} rows")
 
 
-def fetch_docs_month(client, month, full):
+def fetch_docs_month(client, month, full, by_language=False):
     """English per-page detail, plus (on `full` months) a translation roll-up.
 
     `full` pages the entire docs hostname — ~87k rows, nine requests — and is
     only worth it for the month the report actually displays. Older months fetch
     the English subset directly, which is one request in ten.
+
+    `by_language` keys the roll-up on (path, language) rather than on path; see
+    the module docstring for why it is off.
     """
     date_range = plausible.month_range(month)
     base = plausible.host_filter(plausible.DOCS_HOST)
@@ -122,22 +128,25 @@ def fetch_docs_month(client, month, full):
             continue
         m = DOCS_PATH.match(path)
         if m and m.group(1) != "en":
-            i18n_all[(m.group(3), m.group(1))] += pv
+            key = (m.group(3), m.group(1)) if by_language else (m.group(3), None)
+            i18n_all[key] += pv
             if not PINNED_VERSION.match(m.group(2)):
-                i18n_current[(m.group(3), m.group(1))] += pv
+                i18n_current[key] += pv
 
     store.write("docs-en", english, month=month)
     print(f"  docs-en {month}: {len(english):,} pages, "
           f"{sum(r['pv'] for r in english):,} pageviews")
     if full:
-        store.write("docs-i18n",
-                    [{"p": p, "l": lang, "pv": pv, "c": i18n_current[(p, lang)]}
-                     for (p, lang), pv in i18n_all.items()],
-                    month=month, key=("p", "l"))
+        rows_out = [dict({"p": p, "pv": pv, "c": i18n_current[(p, lang)]},
+                         **({"l": lang} if by_language else {}))
+                    for (p, lang), pv in i18n_all.items()]
+        store.write("docs-i18n", rows_out, month=month,
+                    key=("p", "l") if by_language else "p")
         current = sum(i18n_current.values())
-        langs = {lang for _, lang in i18n_all}
-        print(f"  docs-i18n {month}: {len(i18n_all):,} path/language pairs across "
-              f"{len(langs)} languages, "
+        what = (f"{len(i18n_all):,} path/language pairs across "
+                f"{len({lang for _, lang in i18n_all}):,} languages"
+                if by_language else f"{len(i18n_all):,} paths")
+        print(f"  docs-i18n {month}: {what}, "
               f"{current:,} pageviews on the current docs, "
               f"{sum(i18n_all.values()) - current:,} on pinned releases")
 
@@ -196,10 +205,10 @@ def available_months(client):
             if r["metrics"][0] > 0]
 
 
-def run(months, newest, client):
+def run(months, newest, client, by_language=False):
     for month in months:
         full = month == newest
-        fetch_docs_month(client, month, full=full)
+        fetch_docs_month(client, month, full=full, by_language=by_language)
         fetch_www_month(client, month)
         fetch_outbound_month(client, month)
         fetch_os_month(client, month)
@@ -211,6 +220,10 @@ def main():
     ap.add_argument("command", choices=["probe", "backfill", "incremental"])
     ap.add_argument("--months", type=int, default=13,
                     help="how many trailing complete months to keep (default 13)")
+    ap.add_argument("--by-language", action="store_true",
+                    help="keep the language on the translation roll-up rather "
+                         "than summing it away (2.2 MB against 519 KB, no extra "
+                         "requests, read by nothing on the page)")
     args = ap.parse_args()
 
     client = plausible.Client()
@@ -246,7 +259,7 @@ def main():
 
     print(f"fetching {len(todo)} month(s): {todo[0]} .. {todo[-1]}")
     fetch_site_daily(client, FIRST_MONTH, plausible.month_range(newest)[1])
-    run(todo, newest, client)
+    run(todo, newest, client, by_language=args.by_language)
 
 
 if __name__ == "__main__":

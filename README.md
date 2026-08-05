@@ -68,6 +68,53 @@ If you run the instance, `scripts/fetch.py` stores daily visitor counts in
 `data/raw/site-daily.ndjson` — unused by the report, kept so the table above
 stays checkable.
 
+### Why there is no translator's view
+
+A second page was built up to the point of drawing it and then abandoned: for
+each language, which pages are most read against how much of them is still
+untranslated, so a translator could pick high-demand, low-coverage work. The
+machinery is here and dormant — `scripts/l10n.py`, and `fetch.py --by-language`
+— because the question is a good one and the answer turned out not to need a
+page.
+
+**Translators are already working in demand order.** Across the mid-coverage
+languages the correlation between a page's reading and its coverage runs 0.44
+to 0.60 (ja 0.60, es 0.50, fr 0.45, pt-br 0.44), and their top decile by demand
+is 75–85% translated against 30–44% overall. For the near-complete languages the
+correlation collapses (it 0.07, de 0.10) because there is nothing left to
+prioritise — Italian's top decile is 96% done. Nobody needed a report to tell
+them to start with the popular pages.
+
+**And the recommendation would have been the obvious one.** Ranked by reading
+per remaining word, 13 of Japanese's top 20 and 9 of French's are
+`getting_started/`, and most of the rest are `about/system_requirements`,
+`community/tutorials`, `tutorials/scripting/index`. "Finish the getting-started
+tutorials" is not worth a page to discover. The ranking also degenerates where
+coverage is lowest, which is where it would be most wanted: for Polish, at 5%
+translated, the top entries are two-word index stubs with five readers, because
+a small denominator wins a ratio.
+
+Two findings did survive, and both fit in a paragraph rather than a chart.
+
+**Weblate's percentages overstate progress, worst where the work is.** They
+count messages; translators spend words. Short strings get translated first, so
+the two diverge systematically and always in the same direction —
+`tutorials/2d/index` reads 67% done by message and is 9% done by words, because
+its four translated messages are `2D`, `Rendering`, `Physics and movement` and
+`Tools` while the two left carry 62 of the page's 68 words. It holds on every
+page and language checked (`gdscript_basics` in Japanese 79% against 62%,
+`about/faq` in Polish 70% against 62%). The number everyone steers by is most
+wrong about the pages with the most left to do.
+
+**A sixth of the remaining work is on pages nobody reads in that language.**
+Between 6% and 27% of each language's untranslated words sit on pages with zero
+readers in it over the month — 27% for Italian, 15% Polish, 13% German. That is
+a stop signal rather than a start signal, it is invisible in Weblate, and it is
+one number per language.
+
+Reproduce either with `python3 scripts/l10n.py` (~120 MB clone, three seconds)
+joined against a roll-up fetched with `--by-language`.
+
 ### Publishing clearance
 
 This draws on Godot's own analytics rather than public data. Nothing is
@@ -94,13 +141,14 @@ nothing sensitive ever entered history.
 - `scripts/fetch.py` — writes `data/raw/`, one byte-stable ndjson file per kind
   and month. The docs site serves ~87k distinct URLs a month across 46 language
   codes and a dozen versions; keeping that per-page for every month would be
-  ~85 MB of mostly noise. So thirteen months of per-page detail are English-only,
-  and the other languages are stored per (path, language) for the newest month
-  alone, at 2.2 MB — the versions get rolled up, not the languages, because a
-  language is a different readership with its own coverage and priorities where
-  a pinned release is the same readership on an older copy. Two counts per pair,
-  not one: the current docs and every version, because a share needs the first
-  and the breadth of translated reading needs the second. Only the newest month
+  ~85 MB of mostly noise. So per-page detail is English-only, and the other
+  languages are rolled up per path for the newest month alone, at 519 KB. Two
+  counts per path, not one: the current docs and every version, because a share
+  needs the first and the breadth of translated reading needs the second.
+  `--by-language` keeps the language rather than summing it away, at 2.2 MB and
+  no extra requests; it is off because nothing reads it, and it exists because
+  no downstream work recovers a dimension discarded at fetch time (see *Why
+  there is no translator's view*). Only the newest month
   pages the full hostname (nine requests); older months fetch the English subset
   in one.
 
@@ -128,29 +176,19 @@ nothing sensitive ever entered history.
   point. The sparse spec is reapplied on every run, so a cache built by an older
   revision picks up newly needed files rather than silently missing them.
   Nothing of this reaches GitHub: `.cache/` is gitignored.
-- `scripts/l10n.py` — the mirror of `inventory.py`, one repository over. Clones
+- `scripts/l10n.py` — **not part of the pipeline**; nothing runs it and nothing
+  reads its output. The mirror of `inventory.py` one repository over: it clones
   `godot-docs-l10n` and records, per page and language, how many of the page's
   source words are translated, into `data/l10n.json` (94 KB, three seconds).
   Shallow and blob-filtered where the docs clone can be neither, because nothing
   here asks anything of the history — only the current state of the
   translations — at ~120 MB for thirteen languages and 6,565 `.po` files.
-
-  Coverage is **word-weighted**, and parsing the files rather than reading
-  Weblate's percentages is the entire reason this script exists. Short strings
-  get translated first, so a message count overstates progress everywhere and
-  worst where the work is left: `tutorials/2d/index` is four of its six messages
-  done — 67% — and the four are `2D`, `Rendering`, `Physics and movement` and
-  `Tools`, while the two remaining carry 62 of the page's 68 words. By words it
-  is 9% done. The same gap holds across pages and languages (`gdscript_basics`
-  in Japanese: 79% by message, 62% by words), always in that direction.
-
-  The denominator is `sphinx/templates/<page>.pot`, which holds every source
-  string, and it cannot be the language's own `.po`, which holds only what
-  someone has already translated — `ja/tutorials/3d/volumetric_fog.po` carries
-  one message where the template carries 85. A first version read the `.po`
-  alone and reported every page in every language as 100% translated.
-- `scripts/aggregate.py` — joins the two into `docs/data.js`, a single
-  `window.DATA = {…}` assignment.
+  Coverage is word-weighted; the denominator is `sphinx/templates/<page>.pot`
+  and cannot be the language's own `.po`, which holds only what someone has
+  already translated, so reading that alone reports every page in every language
+  as complete. Kept for the reasons in *Why there is no translator's view*.
+- `scripts/aggregate.py` — joins raw traffic and the inventory into
+  `docs/data.js`, a single `window.DATA = {…}` assignment.
 - `docs/` — the page. Hand-written `index.html`, vanilla `app.js`, and a
   vendored [Chart.js](https://github.com/chartjs/Chart.js) 4.4.9 (MIT).
 
@@ -244,16 +282,19 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   divides by, and `pv` for every version. It matters by a sixth: 130,121 of
   851,931 translated pageviews are on pinned releases.
 
-  *Which language.* 46 codes appear in the URLs and 13 have translations behind
-  them. `fi` is the odd one — 1,618 pageviews across 670 paths with no
-  `sphinx/po/fi` in the l10n repository — and everything below it is typo noise:
-  `jp`, `kr`, `cn`, `ua`, `zn` and a dozen more, single digits over a handful of
-  paths each. Nothing filters them at fetch time, because a list of real
-  languages would go stale the moment one is added, and they cost nothing: the
-  noise is ~100 rows of 31,426. They drop out on their own wherever coverage is
-  joined, having no translation files to join to. Note the codes are spelled as
-  the URL spells them, `zh-cn` and `pt-br`, where the l10n repository spells the
-  same languages `zh_CN` and `pt_BR`.
+  *Which language.* Not recorded by default — the roll-up sums them, and the
+  share above is every non-English language at once. Under `--by-language` the
+  month splits into 31,426 path/language pairs across 46 codes, of which 13 have
+  translations behind them: `fi` is the odd one, 1,618 pageviews across 670 paths
+  with no `sphinx/po/fi` in the l10n repository, and everything below it is typo
+  noise — `jp`, `kr`, `cn`, `ua`, `zn` and a dozen more, single digits over a
+  handful of paths each. Nothing filters them, because a list of real languages
+  would go stale the moment one is added and the noise is ~100 rows of 31,426;
+  they drop out on their own wherever coverage is joined, having no translation
+  files to join to. The codes are spelled as the URL spells them, `zh-cn` and
+  `pt-br`, where the l10n repository spells the same languages `zh_CN` and
+  `pt_BR`; `l10n.py` normalises to the URL form, the traffic side being the one
+  with 46 codes from readers typing whatever they liked.
 
   *Which path.* Translation paths are keyed on the remainder after
   `/<lang>/<version>/`, which is *empty* for the manual's landing page — the

@@ -118,15 +118,22 @@ class TestI18nKeys(unittest.TestCase):
         self.assertEqual(self.fold(rows), {"index.html": 6})
         self.assertEqual(self.by_lang(rows), {"ja": {"index.html": 6}})
 
+    def test_the_summed_shape_is_still_read(self):
+        """--by-language is off by default, so the ordinary file has no `l` and
+        the English report must read it exactly as before."""
+        out = self.fold([{"p": "about/faq.html", "pv": 100, "c": 60},
+                         {"p": "", "pv": 40, "c": 30}])
+        self.assertEqual(out, {"about/faq.html": 60, "index.html": 30})
+
     def test_a_rollup_without_the_version_split_stops_the_run(self):
         """Old files sum every version into one number and cannot be repaired
         after the fact, so they must fail loudly rather than read as a share."""
         with self.assertRaises(SystemExit):
             self.fold([{"p": "about/faq.html", "l": "de", "pv": 9}])
 
-    def test_a_rollup_without_the_language_split_stops_the_run(self):
-        """Same reasoning one axis over: a file that summed the languages cannot
-        be split back into them."""
+    def test_asking_per_language_of_a_summed_file_stops_the_run(self):
+        """A sum cannot be split back into what it summed, so the caller is sent
+        to the flag rather than handed thirteen languages collapsed into one."""
         with self.assertRaises(SystemExit):
             self.by_lang([{"p": "about/faq.html", "pv": 9, "c": 9}])
 
