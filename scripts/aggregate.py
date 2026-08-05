@@ -252,7 +252,7 @@ def period_label(group):
     which may hold only part of its quarter.
     """
     year, number = group[0].split("-")
-    return f"Q{(int(number) - 1) // PERIOD_MONTHS + 1} {year[2:]}"
+    return f"Q{(int(number) - 1) // PERIOD_MONTHS + 1} '{year[2:]}"
 
 
 def build_churn(inventory, index):
