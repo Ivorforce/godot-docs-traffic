@@ -239,7 +239,7 @@ or the class reference on its own.</p>
   <span class="crumbs" id="crumbs"></span>
 </div>
 
-<h2>Attention against footprint
+<h2>Attention against footprint, part by part
   <span class="range-group" role="group" aria-label="Footprint" id="footprint-mode">
     <button data-footprint="words" aria-pressed="true">words</button>
     <button data-footprint="pages" aria-pressed="false">pages</button>
@@ -248,7 +248,10 @@ or the class reference on its own.</p>
 <div class="chart-box tall"><canvas id="chart-sections"></canvas></div>
 <p class="caption" id="sections-note"></p>
 <p class="caption">For each part of the manual, its share of all pageviews against
-its share of the manual's size. Hover a bar for the counts and for pageviews per
+its share of the manual's size. A sub-section is one bar whatever is inside it,
+and a page sitting directly at this level is a bar of its own — so where nothing
+is nested underneath, these bars are the pages of the chart below, in shares of
+the level rather than in counts. Hover a bar for the counts and for pageviews per
 thousand words. The two bars are shares of <em>different</em> totals, so read the
 gap as a ratio: a section at half its share of pageviews is opened half as often
 per word as the manual overall.</p>
@@ -262,7 +265,7 @@ with prose. <strong>Pages</strong> answers a different question — how many
 separate documents a reader moves between — and the two disagree. The class
 reference is excluded unless the path bar's first entries put it back.</p>
 
-<h2>What each page costs and returns</h2>
+<h2>Attention against footprint, page by page</h2>
 <div class="chart-box square"><canvas id="chart-scatter"></canvas></div>
 <p class="caption">Every page in the current section: how much it is viewed
 (horizontal) against how long it is (vertical), both on log scales, with the
@@ -320,7 +323,7 @@ to find. Pages deleted outright are not in this table, so every bar sits a littl
 further right than the docs went.</p>
 
 <div class="table-head">
-  <h2>Page by page <span id="table-scope"></span></h2>
+  <h2>The same pages, listed <span id="table-scope"></span></h2>
   <input type="search" id="filter" placeholder="filter pages…" aria-label="Filter pages">
 </div>
 <div class="table-wrap">
