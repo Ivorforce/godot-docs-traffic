@@ -8,13 +8,13 @@ page costs from the docs source tree; this records what is already done from the
 translation tree, so a translator can be told what to work on next rather than
 only that a page carries weight in translation.
 
-Coverage is *word-weighted*, not message-counted, and that is the whole reason
-this script parses the files rather than reading Weblate's percentages. Short
-strings get translated first, so a message count overstates progress everywhere
-and worst on the pages where the remaining work is: tutorials/2d/index has four
-of its six messages translated — 67% by message — and they are `2D`, `Rendering`,
-`Physics and movement` and `Tools`, while the two that are left carry 62 of the
-page's 68 words. By words that page is 9% done.
+Coverage is *word-weighted*, not string-counted, which is why this parses the
+files rather than taking a ready-made percentage. Short strings get translated
+first, so a string count overstates progress everywhere and worst on the pages
+where the remaining work is: tutorials/2d/index has four of its six strings
+translated — 67% by string — and they are `2D`, `Rendering`, `Physics and
+movement` and `Tools`, while the two that are left carry 62 of the page's 68
+words. By words that page is 9% done.
 
 The denominator has to be sphinx/templates/<page>.pot, which holds every source
 string. It cannot be the language's own .po, which holds only what somebody has

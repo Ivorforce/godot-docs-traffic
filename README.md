@@ -96,15 +96,23 @@ a small denominator wins a ratio.
 
 Two findings did survive, and both fit in a paragraph rather than a chart.
 
-**Weblate's percentages overstate progress, worst where the work is.** They
-count messages; translators spend words. Short strings get translated first, so
-the two diverge systematically and always in the same direction —
-`tutorials/2d/index` reads 67% done by message and is 9% done by words, because
-its four translated messages are `2D`, `Rendering`, `Physics and movement` and
+**Counting strings overstates progress, worst where the work is.** A string
+count is what `msgfmt --statistics` reports and what a per-page progress figure
+is usually quoted as; a translator spends words. Short strings get translated
+first, so the two diverge systematically and always in the same direction —
+`tutorials/2d/index` reads 67% done by string and is 9% done by words, because
+its four translated strings are `2D`, `Rendering`, `Physics and movement` and
 `Tools` while the two left carry 62 of the page's 68 words. It holds on every
 page and language checked (`gdscript_basics` in Japanese 79% against 62%,
-`about/faq` in Polish 70% against 62%). The number everyone steers by is most
-wrong about the pages with the most left to do.
+`about/faq` in Polish 70% against 62%), and converges only once a page is
+genuinely finished (`about/faq` in German, 99% both ways). A progress number
+read as "nearly there" can mean nine tenths of the writing is still to come.
+
+What is *measured* here is the divergence between the two counts, from the
+`.po` and `.pot` files. Which figure Godot's translators actually work from was
+not checked — Weblate tracks word statistics as well as string statistics, so
+this is a caution about how a percentage is read rather than a defect found in
+anyone's tooling.
 
 **A sixth of the remaining work is on pages nobody reads in that language.**
 Between 6% and 27% of each language's untranslated words sit on pages with zero
