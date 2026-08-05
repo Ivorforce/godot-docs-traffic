@@ -711,9 +711,9 @@ class TestGeneratedPayload(unittest.TestCase):
         if "other" in editions:
             self.assertEqual(editions[-1], "other")
 
-    def test_no_edition_month_carries_a_loop(self):
-        """The chart excludes looping pageviews, and April 2026 is why: one URL
-        fired 7.2M of them, four times the site's ordinary month. If the
+    def test_no_edition_month_carries_the_storm(self):
+        """The chart excludes REDIRECT_STORM, and April 2026 is why: one path
+        fired 7.2M pageviews, four times the site's ordinary month. If the
         exclusion ever stops working, the largest month is many times the
         smallest instead of within a fifth of it."""
         totals = [sum(e["views"][i] for e in self.docs["editions"])
@@ -901,16 +901,11 @@ class TestEditions(unittest.TestCase):
     after it stops being current can be measured.
     """
 
-    PAGES = {"/en/stable/tutorials/2d/index.html": {}}
-    RULES = {"/development/file_formats/index.html":
-             "/engine_details/development/file_formats/index.html"}
-
     def build(self, rows_by_month, **kw):
         original = aggregate.store.read
         aggregate.store.read = lambda kind, month: rows_by_month[month]
         try:
-            return aggregate.build_editions(sorted(rows_by_month), self.RULES,
-                                            self.PAGES, **kw)
+            return aggregate.build_editions(sorted(rows_by_month), **kw)
         finally:
             aggregate.store.read = original
 
@@ -923,9 +918,9 @@ class TestEditions(unittest.TestCase):
         self.assertEqual(out, [{"edition": "stable", "views": [10, 12]},
                                {"edition": "4.6", "views": [4, 0]}])
 
-    def test_looping_pageviews_are_left_out(self):
-        """One looping URL fired 7.2M pageviews in April 2026, four times the
-        site's ordinary month. Left in, the chart is that URL and nothing
+    def test_the_redirect_storm_is_left_out(self):
+        """One of those paths fired 7.2M pageviews in April 2026, four times the
+        site's ordinary month. Left in, the chart is that path and nothing
         else."""
         out = self.build({"2026-07": [
             {"p": "/en/stable/tutorials/2d/index.html", "pv": 10},
@@ -934,9 +929,9 @@ class TestEditions(unittest.TestCase):
         ]})
         self.assertEqual(out, [{"edition": "stable", "views": [10]}])
 
-    def test_a_loop_is_excluded_on_every_edition(self):
-        """redirects.csv ships in every build, so the loop is a property of the
-        path rather than of the edition serving it."""
+    def test_the_storm_is_excluded_on_every_edition(self):
+        """redirects.csv ships in every build, so the storm hit the path in
+        whichever edition served it, not `stable` alone."""
         out = self.build({"2026-07": [
             {"p": "/en/4.6/engine_details/development/file_formats/index.html",
              "pv": 500000},

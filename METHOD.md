@@ -92,8 +92,10 @@ checkable.
   bucket splits by where the reader ends up: **forwarded** reached a page (or an
   off-site target the docs chose, which nothing here can follow), **looping**
   never arrives, and **forwardedNowhere** gets a second "page not found". In July
-  that is 1,746, 11,996 and 32 pageviews — **87% of what this report used to call
-  benign was a loop**. See [Checks](#checks).
+  that is 13,857, 0 and 0 pageviews. It was 1,746, 11,996 and 32 until
+  godot-docs `6d86d7c7f` fixed the looping rules — **87% of what this report used
+  to call benign was a loop**, which is why the bucket splits by landing rather
+  than by whether a rule matched. See [Checks](#checks).
 - **translation reads** — pageviews for the same path summed across all
   non-English languages. 35% of pageviews on the current docs is non-English. The
   scatter names the count on hover; it is nowhere else (see [NOTES.md](NOTES.md)).
@@ -216,9 +218,10 @@ flat sum away would leave only the composition.
 August 2025, while it was current, and 3% by November: a superseded release's
 tail runs about two months, which is the figure behind backporting a fix to it.
 The reverse holds before a release — `/en/4.7/` reached 144k pageviews a month
-while still in development. Looping pageviews are excluded here and nowhere
-else: one looping URL fired 7.2M of them in April 2026, four times the site's
-ordinary month, which drawn to scale leaves the other twelve columns a smear.
+while still in development. The redirect storm is excluded here and nowhere
+else: one path fired 7.2M pageviews in April 2026, four times the site's ordinary
+month, which drawn to scale leaves the other twelve columns a smear. See
+[Checks](#checks).
 
 **Months, not quarters.** `/en/4.4/` ran 18%, 28%, 29%, 13%, 5% across five
 months, which in calendar quarters is 25%, 8%, 5% — the peak averaged away, the
@@ -255,11 +258,19 @@ file again:
 ```
 
 The tree has no `development/` segment there; the page is
-`engine_details/file_formats/index.html`. **Eight rules currently loop**, into
-seven URLs, and readers reaching them account for 7,830,862 pageviews across the
-stored history — 7,248,306 of them on that one URL in April 2026, 84% of the
-month's `/en/stable/` traffic, at ~600,000 pageviews a day against a site
-baseline of ~80,000.
+`engine_details/file_formats/index.html`. **Eight rules looped** until godot-docs
+`6d86d7c7f` repointed them, into seven URLs, and readers reaching them account
+for 7,830,862 pageviews across the stored history — 7,248,665 of them on that one
+URL in April 2026, 84% of the month's `/en/stable/` traffic, at ~600,000
+pageviews a day against a site baseline of ~80,000. The check now finds nothing
+and stays as a guard.
+
+Those pageviews are still in the stored months, so the editions chart excludes
+the two paths by name (`REDIRECT_STORM` in `aggregate.py`). Asking whether they
+still loop is what broke the first monthly run after the fix: the rule was
+repointed, the walk found a page, and April came back at five times an ordinary
+month. April 2026 leaves the 13-month window with the May 2027 run, and the list
+can go with it.
 
 **Traffic anomalies** are checked on two arms, because neither alone would have
 named both incidents. Per page, a URL is flagged when it gains at least 1% of the

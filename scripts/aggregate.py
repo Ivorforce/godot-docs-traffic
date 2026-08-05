@@ -46,6 +46,24 @@ STALE_LIMIT = 25
 # stack is a band a pixel high per pinned release back to 2.1.
 EDITION_LIMIT = 6
 
+# Two paths that never named a page in any edition, and whose pageviews are an
+# accident of `redirects.csv` rather than anyone reading. Until godot-docs
+# 6d86d7c7f, `/development/file_formats/index.html` forwarded to a path with a
+# `development/` segment the tree does not have; 404.rst answered, consulted the
+# same file, and sent the browser to where it already was. Each pass fired a
+# pageview: 7,248,665 on the first path in April 2026 alone, 84% of that month's
+# `/en/stable/` traffic, and 578,834 on the second, mostly in March.
+#
+# Named here rather than detected, because detection asked whether the path
+# still loops *today* — and the fix upstream retracted the answer while leaving
+# the pageviews in the stored months, which is how the monthly run first broke.
+# April 2026 leaves the 13-month window with the May 2027 run, and this list can
+# go with it.
+REDIRECT_STORM = frozenset({
+    "engine_details/development/file_formats/index.html",
+    "engine_details/development/file_formats/tscn.html",
+})
+
 
 def canonical(url):
     """Normalise a trafficked URL to the form the inventory uses.
@@ -393,7 +411,7 @@ def edition_of(url):
     return parts[2], parts[3]
 
 
-def build_editions(months, redirects, pages, keep=EDITION_LIMIT):
+def build_editions(months, keep=EDITION_LIMIT):
     """[{edition, views: [per month]}] for English traffic, thickest first.
 
     The report is `/en/stable/` alone, four fifths of English reading; this is
@@ -401,28 +419,20 @@ def build_editions(months, redirects, pages, keep=EDITION_LIMIT):
     how long a superseded release is still read, which is what decides whether a
     fix is worth backporting to it.
 
-    Loops are excluded, on the path they loop on rather than per edition since
-    `redirects.csv` ships in every build. Without that this is a chart of April
-    2026, where one looping URL fired seven million pageviews and buried a series
-    whose whole point is that the total barely moves.
+    `REDIRECT_STORM` is excluded, on the path rather than per edition since
+    `redirects.csv` ships in every build. Without it this is a chart of April
+    2026, where one URL fired seven million pageviews and buried a series whose
+    whole point is that the total barely moves.
 
     Editions past `keep` are summed into "other" rather than dropped, so the bars
     stay the whole of English reading and the flat total stays checkable.
     """
-    looping = {}
-
-    def loops(rest):
-        if rest not in looping:
-            kind, _ = redirect_walk(canonical(URL_PREFIX + rest), redirects, pages)
-            looping[rest] = kind == "cycle"
-        return looping[rest]
-
     series = collections.defaultdict(collections.Counter)
     totals = collections.Counter()
     for month in months:
         for row in store.read("docs-en", month):
             edition, rest = edition_of(canonical(row["p"]))
-            if edition is None or loops(rest):
+            if edition is None or rest in REDIRECT_STORM:
                 continue
             series[edition][month] += row["pv"]
             totals[edition] += row["pv"]
@@ -528,7 +538,7 @@ def build_docs(months, inventory):
         "funnel": build_funnel(inventory),
         "churn": build_churn(inventory, {url: i for i, url in enumerate(paths)}),
         "sections": {k: [v.get(m, 0) for m in months] for k, v in sections.items()},
-        "editions": build_editions(months, redirects, pages),
+        "editions": build_editions(months),
         "unforwarded": unforwarded[:STALE_LIMIT],
         "looping": looping[:STALE_LIMIT],
         "unforwardedTotal": sum(r[1] for r in unforwarded),
