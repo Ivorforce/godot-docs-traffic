@@ -417,7 +417,7 @@ class TestChurnRollup(unittest.TestCase):
         column and a page edited in two of its months shows as their sum."""
         out, inv = self.build()
         row = self.index(inv)["/en/stable/tutorials/a.html"]
-        self.assertEqual([p["label"] for p in out["periods"]], ["Q2 26"])
+        self.assertEqual([p["label"] for p in out["periods"]], ["Q2 '26"])
         self.assertEqual(out["series"][row], {0: 35})
 
     def test_only_the_newest_period_is_marked_partial(self):
@@ -452,15 +452,15 @@ class TestChurnRollup(unittest.TestCase):
         periods = aggregate.churn_periods(months, months[-1])
         self.assertEqual([p["months"] for p in periods],
                          [["2025-05", "2025-06"], ["2025-07", "2025-08"]])
-        self.assertEqual([p["label"] for p in periods], ["Q2 25", "Q3 25"])
+        self.assertEqual([p["label"] for p in periods], ["Q2 '25", "Q3 '25"])
         self.assertEqual([p["partial"] for p in periods], [False, True])
 
     def test_period_labels_name_the_quarter(self):
         """Short, because sixteen of them share the width of the page."""
         self.assertEqual(
-            aggregate.period_label(["2025-07", "2025-08", "2025-09"]), "Q3 25")
-        self.assertEqual(aggregate.period_label(["2026-01"]), "Q1 26")
-        self.assertEqual(aggregate.period_label(["2022-10", "2022-11"]), "Q4 22")
+            aggregate.period_label(["2025-07", "2025-08", "2025-09"]), "Q3 '25")
+        self.assertEqual(aggregate.period_label(["2026-01"]), "Q1 '26")
+        self.assertEqual(aggregate.period_label(["2022-10", "2022-11"]), "Q4 '22")
 
 
 SITE_DAILY = ROOT / "data" / "raw" / "site-daily.ndjson"
