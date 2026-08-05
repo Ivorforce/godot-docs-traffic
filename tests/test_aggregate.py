@@ -573,8 +573,8 @@ class TestGeneratedPayload(unittest.TestCase):
 
     def test_funnel_covers_the_whole_getting_started_guide(self):
         """Read from the toctrees, so a page added to getting_started/ without
-        being listed in one would be missing from the chart while the page's
-        own prose calls the guide a third of all pageviews."""
+        being listed in one would be missing from the chart, and the guide it
+        claims to walk through would be charted short a step."""
         charted = {g["landing"] for g in self.docs["funnel"]}
         charted.update(u for g in self.docs["funnel"] for u in g["steps"])
         under = {p for p in self.docs["paths"] if "/getting_started/" in p}

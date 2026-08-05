@@ -302,12 +302,12 @@ itself, a page narrows the table below to that page, where its own links out
 are. Empty cells are the reason it is here: a part of the docs untouched for a
 quarter is the one thing the pull request feed does not show.</p>
 <p class="caption">The <strong>shading</strong> is those lines against how long
-the row is now, so it says something the figures do not. In Q4 '25
-<code>engine_details/</code> changed 1,353 lines against
-<code>tutorials/</code>'s 5,501 and was the harder worked of the two, turning
-over 9% of its own length where tutorials turned over 5%. The darkest cell is
-the most intensively changed one <em>currently shown</em>, not a fixed mark, so
-the colours redraw when you change section; the numbers do not.</p>
+the row is now, so it says something the figures do not: a short section can be
+the harder worked of two on a quarter where a long one changed several times as
+many lines, having turned over more of itself — the hover gives that multiple.
+The darkest cell is the most intensively changed one <em>currently shown</em>,
+not a fixed mark, so the colours redraw when you change section; the numbers do
+not.</p>
 <p class="caption">Columns are calendar quarters, so a closed one never changes
 again and two versions of this report can be compared. A <strong>rule</strong>
 marks where each year begins. The last column, marked <strong>*</strong>, stops
@@ -348,13 +348,12 @@ so what opens is what was measured.</p>
 
 <h2>Getting started, tutorial by tutorial</h2>
 <div class="chart-box tall"><canvas id="chart-funnel"></canvas></div>
-<p class="caption">The four tutorials of the getting-started guide, in the order
+<p class="caption">The tutorials of the getting-started guide, in the order
 the docs present them, each page measured against its own tutorial's landing
 page. Order and grouping come from the table of contents, so a restructure moves
 this chart instead of breaking it. Hover a point for the page and the count
-behind its percentage. The guide is a third of all pageviews in the hand-written
-manual. This section and the two after it are fixed — the path bar does not reach
-them.</p>
+behind its percentage. This section and the two after it are fixed — the path bar
+does not reach them.</p>
 <p class="caption" id="funnel-note"></p>
 <p class="caption">The percentages are <em>not</em> conversion, and the landing
 page is a denominator rather than a door: readers arrive from search at any step
@@ -375,9 +374,9 @@ what decides whether a documentation fix is worth backporting to it.
 with the current ones.</p>
 <p class="caption">Months rather than quarters, unlike the grid above: a
 handover takes about two months, which a quarter averages into a single edge.
-Pageviews spent in a redirect loop are left out here alone — one such URL fired
-7.2 million of them in a single month — and are counted in full at the foot of
-this page.</p>
+Pageviews spent in a redirect loop are left out here alone, since one looping
+URL can outweigh a month of real reading; they are counted in full at the foot
+of this page.</p>
 
 <h2>Removed pages with no redirect</h2>
 <table id="stale-table">
@@ -418,16 +417,14 @@ docs commit shown at the top of the page.</p>
         help are invisible — and the docs are read in all of those ways.</li>
     <li>A URL counts as a page only if it resolves to a source file in
         godot-docs at the commit shown above. That drops removed pages, Sphinx's
-        search page and scanner noise — about 2% of raw pageviews, accounted for
-        under "removed pages with no redirect" so the loss is visible rather
-        than silent. Roughly half of it is readers being successfully forwarded
-        by the docs' own redirects.</li>
+        search page and scanner noise, accounted for under "removed pages with
+        no redirect" so the loss is visible rather than silent, and split there
+        into what was forwarded and what was never a page.</li>
     <li><strong>Low traffic is not low value.</strong> A page viewed a few hundred
         times a month may be the one that unblocks a contributor, or matters
-        precisely because it is rarely needed. Every page of the manual was opened
-        at least once this period — there is no dead weight to find here, only
-        proportion. Every chart proposes candidates for a human to look at, and
-        none is a recommendation to delete anything.</li>
+        precisely because it is rarely needed. Every chart proposes candidates
+        for a human to look at, and none is a recommendation to delete
+        anything.</li>
     <li>Word counts and edit dates come from the docs source tree as it is today,
         not as it was during the traffic window. A recent edit date is also no
         sign a page was reviewed: most are typo corrections and link sweeps,
@@ -445,8 +442,8 @@ docs commit shown at the top of the page.</p>
     <li>The class reference is generated from the engine's source and synced in
         bulk, so its git dates record sync commits rather than anyone writing.
         For that reason the report opens on the manual without it; the path
-        bar's first entries count its 1,079 pages in, or open the report on
-        them alone.</li>
+        bar's first entries count its pages in, or open the report on them
+        alone.</li>
     <li>Only English <code>/en/stable/</code> pages are counted in detail.
         Translated traffic is summed across all other languages per page. Both
         sides count the current docs only, so the pinned releases and
