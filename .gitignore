@@ -3,13 +3,10 @@ __pycache__/
 .env
 .cache/
 
-# Analytics-derived artifacts stay out of git until publishing clearance
-# (see README). Regenerate with scripts/fetch.py + aggregate.py.
-data/raw/
-data/inventory.json
-docs/data.js
+# data/raw/, data/inventory.json and docs/data.js are committed: this repository
+# is where the numbers live, and Pages serves docs/data.js from main.
 
-# Built from public repositories rather than from analytics, so no clearance
-# question — kept out for the same reason as inventory.json, that a generated
-# file in git is a second copy of something a script already produces.
+# The exception, because nothing in the pipeline produces or reads it —
+# scripts/l10n.py is exploratory, and its output would be a copy of something no
+# page shows. Regenerate with scripts/l10n.py.
 data/l10n.json

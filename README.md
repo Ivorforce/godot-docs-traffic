@@ -1,7 +1,9 @@
 # godot-docs-traffic
 
-Traffic report for the Godot documentation, built from
-[Plausible](https://plausible.io) analytics and rendered as a static page.
+Traffic report for the Godot documentation, built from Godot's own
+[Plausible](https://plausible.io) instance and rendered as a static page. The
+numbers come from the project's tracker directly, and are published here with
+the clearance of the Godot Foundation.
 
 Its main question: **which documentation pages deserve the most care, and which
 are candidates for trimming or merging?** Traffic alone cannot answer that, so
@@ -16,7 +18,7 @@ review and nothing more.
 ## Status
 
 v1 works end to end: fetch, inventory, aggregate, and a page that opens straight
-from disk. Not published — see *Publishing clearance* below.
+from disk.
 
 The headline finding so far is about the data rather than the docs. The manual
 has **no dead pages**: all 1,590 English `/en/stable/` pages were read at least
@@ -54,20 +56,6 @@ duration — is unused. This Plausible version offers no `scroll_depth` and no
 staleness) instead of from engagement. `scripts/fetch.py` still stores daily
 visitor counts in `data/raw/site-daily.ndjson`, unused, so the table above stays
 checkable.
-
-### Publishing clearance
-
-This draws on Godot's own analytics rather than public data. Nothing is
-published, and no analytics data is committed, before the people who run the
-Plausible instance have agreed to it. That conversation is also the moment to
-raise the 2025-10-01 regression, which affects every visitor number on the
-dashboard, not just this report.
-
-Until then, `data/raw/`, `data/inventory.json` and `docs/data.js` are
-**gitignored**: the repository holds the code that produces the report, not the
-report's data. Running the pipeline yourself needs an API key. Clearing this is
-one `.gitignore` change plus a first data commit — no history rewrite, because
-nothing sensitive ever entered history.
 
 ## How it works
 
@@ -350,7 +338,10 @@ open docs/index.html                    # no server needed
 ```
 
 Afterwards, `python3 scripts/fetch.py incremental` fetches only months not
-already stored, always refreshing the newest.
+already stored, always refreshing the newest. That is what
+`.github/workflows/update.yml` runs on the 2nd of each month, when last month is
+the newest complete one, committing `data/` and `docs/data.js` back to `main`.
+It needs `PLAUSIBLE_API_KEY` as a repository secret.
 
 Tests: `python3 -m unittest discover tests`. They cover URL canonicalisation, the
 rst parsers, and the invariants the page depends on — including a check that no
