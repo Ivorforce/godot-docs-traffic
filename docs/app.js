@@ -1368,11 +1368,37 @@ function renderStale() {
     (shown < DOCS.unforwardedUrls ? `, of which the top ${shown} are listed` : "") +
     `. For scale, this is one part of the ${num(DOCS.staleTotal)} pageviews ` +
     `excluded from every other figure on this page because they have no source ` +
-    `file at ${DOCS.commit}: ${num(kinds.redirected || 0)} of those were ` +
-    `forwarded by the ${num(DOCS.redirectCount)} redirects on file, and ` +
-    `${num(kinds.neverPage || 0)} went to URLs that were never pages here — ` +
-    `Sphinx's own search page, downloadable examples, mistyped paths and ` +
-    `scanner traffic across ${num(urls.neverPage || 0)} URLs.`;
+    `file at ${DOCS.commit}: ${num(kinds.forwarded || 0)} of those were ` +
+    `forwarded by the ${num(DOCS.redirectCount)} redirects on file and reached ` +
+    `a page, and ${num(kinds.neverPage || 0)} went to URLs that were never ` +
+    `pages here — Sphinx's own search page, downloadable examples, mistyped ` +
+    `paths and scanner traffic across ${num(urls.neverPage || 0)} URLs.`;
+  renderLoops(kinds, urls);
+}
+
+/* Forwarded is not the same as arrived. 404.rst applies redirects.csv in the
+   reader's browser, so a destination that is not a page serves 404.rst again,
+   which consults the same file again — and where it ends with the source it came
+   from, the browser loops, firing a pageview each pass. */
+function renderLoops(kinds, urls) {
+  const box = document.getElementById("loop-caption");
+  const loops = DOCS.looping || [];
+  const worst = loops[0];
+  box.hidden = !loops.length;
+  if (!loops.length) return;
+  box.textContent =
+    `${num(kinds.looping || 0)} further pageviews are forwarded and never ` +
+    `arrive: ${urls.looping} URLs are sent to a destination that matches the ` +
+    `same rule again, so the reader's browser loops and each pass records ` +
+    `another view. ${num(worst[1])} of them are one URL, ` +
+    `${worst[0].slice(PREFIX.length)}, whose destination names a directory the ` +
+    `manual does not have. These are one reader counted many times rather than ` +
+    `traffic, and a fault in the redirects file rather than in the docs.` +
+    (kinds.forwardedNowhere
+      ? ` A further ${num(kinds.forwardedNowhere)} are forwarded to a URL that ` +
+        `is not a page and is not forwarded on, so the reader is answered with ` +
+        `a second "page not found".`
+      : "");
 }
 
 // ---- controls ---------------------------------------------------------------

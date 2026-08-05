@@ -149,17 +149,19 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   data — and read naively, looks exactly like a dead link.
 
   Joining the file is what makes the removed-pages table actionable. Pageviews to
-  URLs with no source file split three ways: about half are forwarded by the CSV,
+  URLs with no source file split three ways: about half match a rule in the CSV,
   most of the rest went to URLs that were never pages here, and a small remainder
-  are **removed pages with nothing forwarding them**. Only that last group is
-  worth anyone's time; `python3 scripts/aggregate.py --check` prints the current
-  split. The inference holds in one direction only, which is enough: since a
+  are **removed pages with nothing forwarding them**. That last group is what the
+  table lists; `python3 scripts/aggregate.py --check` prints the current split. The inference holds in one direction only, which is enough: since a
   server-side redirect records no pageview, a URL that reaches this report is not
   covered by one.
 
-  **Forwarded is not the same as arrived**, which is why the checks below follow
-  the hops rather than counting one. Eight rules currently forward to a URL that
-  is not a page either, and that URL matches the same rule again.
+  **Forwarded is not the same as arrived**, so the join follows the hops and the
+  bucket splits by where the reader ends up: **forwarded** reached a page (or an
+  off-site target the docs chose, which nothing here can follow), **looping**
+  never arrives, and **forwardedNowhere** gets a second "page not found". In July
+  that is 1,746, 11,996 and 32 pageviews — **87% of what this report used to call
+  benign was a loop**. See *Checks*.
 - **translation reads** — pageviews for the same path summed across all
   non-English languages. 35% of pageviews on the current docs is non-English. The
   scatter names the count on hover; it is nowhere else (see *What was tried and
@@ -271,18 +273,16 @@ the grid has a traffic figure beside it at all.
 ## Checks
 
 `aggregate.py` runs two integrity checks on every build. Both print warnings and
-change nothing — no figure moves, no field is added to `docs/data.js`, and the
-run still writes. `--check` lists what they found. They exist because
-`update.yml` publishes on the 2nd of every month with nobody watching, and
-because both failures they look for are invisible in the report itself: a month
-in which one URL took 81% of the traffic draws exactly like an ordinary month.
+change nothing; `--check` lists what they found. They exist because `update.yml`
+publishes on the 2nd of every month with nobody watching, and both failures are
+invisible in the report itself: a month in which one URL took 81% of the traffic
+draws exactly like an ordinary month.
 
-**Redirect cycles** need no traffic data at all — they are a property of
-`_static/redirects.csv` and the page list. Since 404.rst matches by
-`pathname.endsWith(source)` and applies the redirect in the browser, a
+**Redirect cycles** need no traffic data — they are a property of
+`_static/redirects.csv` and the page list. 404.rst matches by
+`pathname.endsWith(source)` and applies the redirect in the browser, so a
 destination that is not a page serves 404.rst again, which consults the same
-file again. Where the destination is itself a suffix of its own source, that is
-a loop, and each pass fires the analytics script:
+file again:
 
 ```
 /development/file_formats/index.html
@@ -291,40 +291,31 @@ a loop, and each pass fires the analytics script:
 ```
 
 The tree has no `development/` segment there; the page is
-`engine_details/file_formats/index.html`, which the neighbouring
-`gdscript_grammar` rule already spells correctly. **Eight rules currently loop**,
-into seven distinct URLs, and readers reaching them account for 7,830,862
-pageviews across the stored history. 7,248,306 of those landed on that one URL
-in April 2026 — 84% of the month's `/en/stable/` traffic, in two runs of about a
-week at ~600,000 pageviews a day against a site baseline of ~80,000. The report
-files every one of them under **forwarded**, the bucket it calls benign on the
-grounds that the reader arrived where they meant to.
+`engine_details/file_formats/index.html`. **Eight rules currently loop**, into
+seven URLs, and readers reaching them account for 7,830,862 pageviews across the
+stored history — 7,248,306 of them on that one URL in April 2026, 84% of the
+month's `/en/stable/` traffic, at ~600,000 pageviews a day against a site
+baseline of ~80,000.
 
 **Traffic anomalies** are checked on two arms, because neither alone would have
 named both incidents. Per page, a URL is flagged when it gains at least 1% of the
-newest month against the *median* of its own earlier months — an excess rather
-than a ratio, since both incidents on record rose from zero, where every ratio is
-infinite and a ratio rule flags every newly written page instead. A median rather
-than the previous month, so a burst already in the history cannot raise the bar
-for the months after it. One percent is about 17,000 pageviews here, so a page
-must gain a small section's worth of reading to trip it; one or two rows a month
-is the normal reading, usually the landing page of a version entering
-development.
+newest month — about 17,000 pageviews — against the *median* of its own earlier
+months. An excess rather than a ratio, since both incidents rose from zero, where
+every ratio is infinite; a median rather than the previous month, so a burst
+already in the history cannot raise the bar after it.
 
 Per day, from `site-daily.ndjson`, a day is flagged above 3× its trailing 90-day
-median. This arm covers the whole docs site rather than English alone, which is
-what the per-page files hold: the largest bursts on record, about 3M pageviews a
-month across November and December 2025, are not in `docs-en-*.ndjson` at all. No
-day is judged until the window behind it is full, which is the whole handling of
-the one thing a trailing median reads backwards — pageviews rose 40× over the two
-months the tracker was being set up, and against a median drawn from that ramp
-every ordinary day after it clears the line.
+median. This arm covers the whole docs site rather than English alone: the
+largest bursts on record, about 3M pageviews a month across November and December
+2025, are not in `docs-en-*.ndjson` at all. No day is judged until the window
+behind it is full — pageviews rose 40× over the two months the tracker was being
+set up, and against a median drawn from that ramp every ordinary day after it
+clears the line.
 
 Neither check fails the build. The cycles are a bug in godot-docs rather than in
 this report, and a month with a burst in it is still the right month to publish:
-in the one case on record the page-level figures were untouched and only the
-stale bucket read wrong. What must not happen is publishing it with nobody
-knowing.
+in the one case on record only the stale bucket read wrong. What must not happen
+is publishing it with nobody knowing.
 
 ## What was tried and cut
 
@@ -413,14 +404,13 @@ the newest complete one, committing `data/` and `docs/data.js` back to `main`.
 It needs `PLAUSIBLE_API_KEY` as a repository secret.
 
 Tests: `python3 -m unittest discover tests`. They cover URL canonicalisation, the
-rst parsers, the two integrity checks — the redirect walk against a loop it must
-catch from either end, the anomaly bars against a burst from zero and against the
-ordinary movement they must not flag — and the invariants the page depends on,
-including a check that no identity-derived number reaches the page, and one that
-per-visitor figures are still implausible, so if the instance is ever fixed the
-suite says so instead of the constraint quietly outliving its reason. Where the CSV export is present they
-also cross-check page totals against it, since it was produced independently of
-the API path.
+rst parsers, the two integrity checks — the redirect walk against a loop entered
+from either end, the anomaly bars against a burst from zero — and the invariants
+the page depends on, including a check that no identity-derived number reaches
+the page, and one that per-visitor figures are still implausible, so if the
+instance is ever fixed the suite says so instead of the constraint quietly
+outliving its reason. Where the CSV export is present they also cross-check page
+totals against it, since it was produced independently of the API path.
 
 ### Verifying the page
 

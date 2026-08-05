@@ -40,7 +40,6 @@ URL_PREFIX = "/en/stable/"
 # but the tail is thousands of scanner hits, so it is cut and the cut reported.
 STALE_LIMIT = 25
 
-
 def canonical(url):
     """Normalise a trafficked URL to the form the inventory uses.
 
@@ -95,18 +94,62 @@ def redirect_for(url, redirects):
     return redirects.get(url)
 
 
-def stale_kind(removed_ts, window_start, redirected):
+def redirect_walk(url, redirects, pages):
+    """Where a reader who asks for `url` ends up, following 404.rst as it runs.
+
+    Returns (kind, url), kind being "page", "dead", "external" or "cycle".
+
+    A redirect out of `redirects.csv` is applied in the browser, on the 404 page,
+    so the destination is fetched as an ordinary request: if it is not a page
+    either, it serves 404.rst again, which consults the same file again. Nothing
+    in that loop notices it has been there before, and each pass fires the
+    analytics script — which is why a cycle costs pageviews rather than being
+    merely broken.
+
+    Needs no hop limit: every URL after the first comes from a destination in the
+    rule set, so the visited set closes a finite walk.
+    """
+    seen = set()
+    while url not in seen:
+        if url in pages:
+            return "page", url
+        destination = redirect_for(url, redirects)
+        if destination is None:
+            return "dead", url
+        if not destination.startswith("/"):
+            return "external", destination  # off-site; the reader has left
+        seen.add(url)
+        url = canonical(URL_PREFIX + destination.lstrip("/"))
+    return "cycle", url
+
+
+def stale_kind(removed_ts, window_start, landing):
     """Why a trafficked URL has no page, which decides what its count means.
 
-    Redirection comes first: if 404.rst forwards the URL, the reader arrived
-    where they meant to and the pageview here is an artifact of the redirect
-    running in the browser. Otherwise a page removed before the window was gone
-    for all of it, so every view is a reader who hit a dead end — the only
-    bucket anyone can act on. One removed during the window was readable for
-    part of it. A URL that was never a page here is neither.
+    Forwarding comes first, and `landing` is where the reader ends up rather
+    than whether a rule matched — the two are not the same, and assuming they
+    were kept a redirect loop in the benign bucket. It is the kind
+    `redirect_walk` returns, or None where no rule matched:
+
+      * **forwarded** — the reader arrived, and the pageview here is an artifact
+        of the redirect running in the browser. An off-site destination counts
+        too: a target the docs chose, which nothing here can follow.
+      * **looping** — never arrives, and every pass fires another pageview. Not
+        readers; one reader counted thousands of times.
+      * **forwardedNowhere** — forwarded to a URL that is not a page and is not
+        forwarded on, so a "page not found" is answered with another one.
+
+    Otherwise a page removed before the window was gone for all of it, so every
+    view is a reader who hit a dead end — the only bucket anyone can act on. One
+    removed during the window was readable for part of it. A URL that was never
+    a page here is neither.
     """
-    if redirected:
-        return "redirected"
+    if landing in ("page", "external"):
+        return "forwarded"
+    if landing == "cycle":
+        return "looping"
+    if landing == "dead":
+        return "forwardedNowhere"
     if not removed_ts:
         return "neverPage"
     return "removedDuring" if removed_ts >= window_start else "noRedirect"
@@ -137,11 +180,10 @@ def load_en_other(month):
 def load_editions_month(month):
     """{canonical url: pageviews} for every English edition in one month.
 
-    The traffic checks read this rather than `load_docs_month`, because an
-    anomaly does not respect the report's window. The burst these checks were
-    written for landed inside `/en/stable/`, but a fetch that started answering
-    for the wrong hostname, or a scraper working a pinned release, shows up
-    outside it and would be invisible to a check that filtered first.
+    The traffic checks read this rather than `load_docs_month`: an anomaly does
+    not respect the report's window, and a fetch answering for the wrong
+    hostname, or a scraper on a pinned release, would be invisible to a check
+    that filtered first.
     """
     out = collections.Counter()
     for row in store.read("docs-en", month):
@@ -381,15 +423,19 @@ def build_docs(months, inventory):
 
     window_start = month_start_ts(newest)
     kinds, urls = collections.Counter(), collections.Counter()
-    unforwarded = []
+    unforwarded, looping = [], []
     for url, pv in stale.items():
-        kind = stale_kind(removed.get(url), window_start,
-                          redirect_for(url, redirects))
+        landing = (redirect_walk(url, redirects, pages)[0]
+                   if redirect_for(url, redirects) else None)
+        kind = stale_kind(removed.get(url), window_start, landing)
         kinds[kind] += pv
         urls[kind] += 1
         if kind in ("noRedirect", "removedDuring"):
             unforwarded.append([url, pv, removed[url]])
+        elif kind == "looping":
+            looping.append([url, pv])
     unforwarded.sort(key=lambda r: -r[1])
+    looping.sort(key=lambda r: -r[1])
 
     return {
         "branch": inventory["branch"],
@@ -401,6 +447,7 @@ def build_docs(months, inventory):
         "churn": build_churn(inventory, {url: i for i, url in enumerate(paths)}),
         "sections": {k: [v.get(m, 0) for m in months] for k, v in sections.items()},
         "unforwarded": unforwarded[:STALE_LIMIT],
+        "looping": looping[:STALE_LIMIT],
         "unforwardedTotal": sum(r[1] for r in unforwarded),
         "unforwardedUrls": len(unforwarded),
         "staleTotal": sum(stale.values()),
@@ -427,19 +474,15 @@ def build_docs(months, inventory):
 # Integrity checks
 #
 # Nothing below reaches docs/data.js. These exist because the report publishes
-# unattended — .github/workflows/update.yml commits a new docs/data.js on the
-# 2nd of every month — and both failures they look for are silent. A month
-# where one URL took 81% of the traffic reads as an ordinary month in every
-# figure the page draws; the numbers are simply about something other than
-# reading.
+# unattended — update.yml commits a new docs/data.js on the 2nd of every month —
+# and both failures they look for are silent: a month where one URL took 81% of
+# the traffic reads as an ordinary month in every figure the page draws.
 # --------------------------------------------------------------------------
 
-# A page has to gain this share of a month's pageviews to be called anomalous.
-# Measured as excess pageviews rather than as a ratio, because both incidents
-# in the stored history rose from a baseline of zero, where every ratio is
-# infinite and a ratio rule fires on every newly added page instead. One
-# percent is about 17,000 pageviews here: a page must gain a small section's
-# worth of reading in a month to trip it.
+# A page has to gain this share of a month's pageviews to be called anomalous —
+# about 17,000 here. An excess rather than a ratio, because both incidents on
+# record rose from a baseline of zero, where every ratio is infinite and a ratio
+# rule fires on every newly added page instead.
 ANOMALY_SHARE = 0.01
 
 # A day is anomalous at this multiple of the trailing median day. The bursts on
@@ -447,9 +490,8 @@ ANOMALY_SHARE = 0.01
 ANOMALY_DAY_RATIO = 3
 ANOMALY_DAY_WINDOW = 90
 
-# How many flagged days --check prints, newest first. The stored history holds
-# more than fit on a screen and the old ones are settled; the count and the
-# oldest date are printed either way, so the cut is visible.
+# How many flagged days --check prints, newest first. The count and the oldest
+# date are printed either way, so the cut is visible.
 SPIKE_LIMIT = 20
 
 
@@ -457,13 +499,11 @@ def page_anomalies(history, months, share=ANOMALY_SHARE):
     """[(excess, url, baseline, views)] for the newest month, largest first.
 
     The baseline is each URL's *median* over the earlier months rather than its
-    mean or its previous month, so a burst that has already happened does not
-    raise the bar for the months after it — May 2026 is checked against a
-    baseline the April incident cannot move.
+    mean or its previous month, so a burst that has already happened cannot raise
+    the bar for the months after it.
 
-    This is a check on the data, not on the docs: a page can legitimately gain
-    a percent of a month, and one or two rows a month is the normal reading.
-    What it answers is whether a figure on the page is about people.
+    A check on the data, not on the docs: one or two rows a month is the normal
+    reading, and what it answers is whether a figure on the page is about people.
     """
     if len(months) < 2:
         return []
@@ -483,19 +523,16 @@ def day_anomalies(days, ratio=ANOMALY_DAY_RATIO, window=ANOMALY_DAY_WINDOW):
     """[(day, views, median)] for days standing above their trailing median.
 
     The daily series covers the whole docs site, so this arm sees what the
-    per-page arm cannot: `data/raw/docs-en-*.ndjson` is English only, and the
-    largest bursts on record — November and December 2025, about 3M pageviews a
-    month — are not in it at all. It says when, and the per-page arm says what;
-    neither alone would have named both incidents.
+    per-page arm cannot: `docs-en-*.ndjson` is English only, and the largest
+    bursts on record — November and December 2025, about 3M pageviews a month —
+    are not in it at all. It says when, and the per-page arm says what.
 
-    Trailing rather than whole-history, so a site that grows is not compared
-    against its first year forever. **A day is not judged until the window
-    behind it is full**, which is the whole handling of the one case a trailing
-    median reads backwards: docs pageviews rose 40x over the two months the
-    tracker was being set up, and measured against a median drawn from that ramp
-    every ordinary day after it clears the line. Waiting for 90 days puts enough
-    of the new level in the window that the ramp stops being the baseline. Ten
-    days of March 2025 are the difference, and not one of them is an event.
+    Trailing rather than whole-history, so a growing site is not compared against
+    its first year forever. **A day is not judged until the window behind it is
+    full**, which handles the one case a trailing median reads backwards: docs
+    pageviews rose 40x over the two months the tracker was being set up, and
+    against a median drawn from that ramp every ordinary day after it clears the
+    line. Ten days of March 2025 are the difference, and not one is an event.
     """
     out = []
     for i, (day, views) in enumerate(days):
@@ -520,52 +557,21 @@ def docs_days():
     return sorted(per_day.items())
 
 
-def redirect_walk(url, redirects, pages):
-    """Where a reader who asks for `url` ends up, following 404.rst as it runs.
-
-    Returns (kind, url), kind being "page", "dead", "external" or "cycle".
-
-    A redirect out of `redirects.csv` is applied in the browser, on the 404
-    page. So the destination is fetched as an ordinary request: if it is not a
-    page either, it serves 404.rst again, which consults the same file again.
-    Nothing in that loop notices it has been there before, and each pass fires
-    the analytics script — which is why a cycle is measured in pageviews rather
-    than being merely broken.
-
-    Terminates without a hop limit: every URL after the first comes from a
-    destination in the rule set, so the walk moves through a finite set and the
-    visited set closes it.
-    """
-    seen = set()
-    while url not in seen:
-        if url in pages:
-            return "page", url
-        destination = redirect_for(url, redirects)
-        if destination is None:
-            return "dead", url
-        if not destination.startswith("/"):
-            return "external", destination  # off-site; the reader has left
-        seen.add(url)
-        url = canonical(URL_PREFIX + destination.lstrip("/"))
-    return "cycle", url
-
-
 def redirect_cycles(redirects, pages):
     """[(source, url)] for rules whose forwarding never lands anywhere.
 
-    Needs no traffic data: it is a property of `redirects.csv` and the page
-    list at the recorded commit. The shape to know is that 404.rst matches by
-    `pathname.endsWith(source)`, so a destination that is *itself* a suffix of
-    its own source matches the same rule again —
+    Needs no traffic data: a property of `redirects.csv` and the page list at
+    the recorded commit. 404.rst matches by `pathname.endsWith(source)`, so a
+    destination that is *itself* a suffix of its own source matches the same rule
+    again —
 
         /development/file_formats/index.html
           -> /engine_details/development/file_formats/index.html   (not a page)
           -> /engine_details/development/file_formats/index.html   ...
 
     where the destination carries a `development/` segment the tree does not
-    have. A rule can only be checked against the pages that exist now, so this
-    is about the current docs; older editions have their own tree and are not
-    what `pages` describes.
+    have. Checked against the pages that exist now, so this is about the current
+    docs; older editions have their own tree.
     """
     out = []
     for source in redirects:
@@ -579,10 +585,8 @@ def redirect_cycles(redirects, pages):
 def cycle_views(current, redirects, pages):
     """(pageviews, [(url, pageviews)]) for trafficked URLs that loop.
 
-    Counted from the URLs readers actually reached, not from the rules, because
-    a rule nobody hits costs nothing. `stale_kind` files every one of these
-    under **redirected** — the bucket the report calls benign, on the ground
-    that the reader arrived where they meant to. In a cycle they did not.
+    Counted from the URLs readers reached rather than from the rules, because a
+    rule nobody hits costs nothing.
     """
     hits = [(url, views) for url, views in current.items()
             if url not in pages
@@ -594,11 +598,9 @@ def cycle_views(current, redirects, pages):
 def run_checks(months, inventory, verbose):
     """Print what the two checks found. Never raises and never changes output.
 
-    A warning rather than a failed run, on both counts. The cycles are a bug in
-    godot-docs and not in this report, and a month with a burst in it is still
-    the right month to publish — its page-level figures were unharmed in the one
-    case on record, and only the stale bucket read wrong. What must not happen
-    is publishing it without anyone knowing, which is what this fixes.
+    A warning rather than a failed run: the cycles are a bug in godot-docs, and a
+    month with a burst in it is still the right month to publish. What must not
+    happen is publishing it without anyone knowing.
     """
     newest = months[-1]
     redirects = redirect_map(inventory)

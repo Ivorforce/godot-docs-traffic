@@ -688,7 +688,7 @@ class TestGeneratedPayload(unittest.TestCase):
         """If the sparse checkout stops fetching redirects.csv, every forwarded
         page silently reappears as a dead link."""
         self.assertGreater(self.docs["redirectCount"], 100)
-        self.assertGreater(self.docs["staleKinds"].get("redirected", 0), 0)
+        self.assertGreater(self.docs["staleKinds"].get("forwarded", 0), 0)
 
     def test_window_start_matches_the_reported_period(self):
         """app.js marks a removal as "during" by comparing against it, so a
@@ -994,9 +994,27 @@ class TestRemovalDates(unittest.TestCase):
         an artifact of the redirect running in the browser."""
         start = aggregate.month_start_ts("2026-07")
         for removed_ts in (None, start - 1, start + 1):
-            self.assertEqual(
-                aggregate.stale_kind(removed_ts, start, "/somewhere.html"),
-                "redirected")
+            self.assertEqual(aggregate.stale_kind(removed_ts, start, "page"),
+                             "forwarded")
+
+    def test_an_offsite_destination_counts_as_arrival(self):
+        """A deliberate target the docs chose, and nothing on this side can
+        follow the reader to check — so it is an arrival, not a loose end."""
+        start = aggregate.month_start_ts("2026-07")
+        self.assertEqual(aggregate.stale_kind(None, start, "external"),
+                         "forwarded")
+
+    def test_a_loop_is_not_an_arrival(self):
+        """The whole reason the walk replaced a one-hop lookup: forwarded and
+        arrived are not the same, and calling a loop forwarded put 87% of that
+        bucket in the benign column."""
+        start = aggregate.month_start_ts("2026-07")
+        self.assertEqual(aggregate.stale_kind(None, start, "cycle"), "looping")
+
+    def test_forwarding_to_another_404_is_kept_apart(self):
+        start = aggregate.month_start_ts("2026-07")
+        self.assertEqual(aggregate.stale_kind(None, start, "dead"),
+                         "forwardedNowhere")
 
     def test_month_start_is_the_first_of_the_month(self):
         import datetime
