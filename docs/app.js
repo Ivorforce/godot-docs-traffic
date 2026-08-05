@@ -37,7 +37,9 @@ const COLORS = {
 
 /* A blue-to-amber ramp: the two families stay distinguishable in every colour
    vision type, and the steps inside each family differ in lightness, so the
-   order survives too. Amber is the end to act on, as everywhere else here.
+   order survives too. Amber is the end to act on, as everywhere else here bar
+   one: the churn grid's split bar is signed rather than ordered, and takes
+   green and red for it. Every scale that ranks things stays in these families.
 
    Turnover is lines changed over the churn window against the page's length
    now, the same measure the churn grid shades by, so the two agree about what
@@ -985,11 +987,20 @@ function renderChurn() {
     fill.style[tilt < 0 ? "right" : "left"] = "50%";
     bar.appendChild(fill);
     td.appendChild(bar);
-    td.title = `${num(child.churn)} lines changed: ${num(added)} added, ` +
-               `${num(deleted)} deleted — ${child.net < 0 ? "−" : "+"}` +
-               `${num(Math.abs(child.net))} lines on the manual, ` +
-               `${pct(added, child.churn)} of the work added against the ` +
-               `manual's ${pct(ref, 1)}`;
+    // The net is the figure that needs a scale beside it: +500 lines is a
+    // rewrite of a short page and a rounding error on tutorials/. It gets the
+    // one the cells above already use — the row's length now — in the same
+    // words, so the two read as one vocabulary rather than two.
+    td.title = `${num(child.churn)} lines changed over the window · ` +
+               `${num(added)} added, ${num(deleted)} deleted · ` +
+               `net ${child.net < 0 ? "−" : "+"}${num(Math.abs(child.net))}, ` +
+               `${Math.abs(child.net / length).toFixed(2)}× the ` +
+               `${num(child.length)} lines ${name} runs to now · ` +
+               `${pct(added, child.churn)} of the work added, against the ` +
+               // Named, because the manual has two averages eight points apart:
+               // 76% of every line changed was an addition, where the mean over
+               // pages is 68%. The line is the one the row's own figure is on.
+               `manual's average of ${pct(ref, 1)} per changed line`;
     tr.appendChild(td);
     body.appendChild(tr);
   }

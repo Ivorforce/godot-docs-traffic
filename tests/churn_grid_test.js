@@ -95,12 +95,14 @@ function readRows(grid) {
     return {
       name: tr.children[0].textContent,
       total: total.children[0].textContent,
+      title: total.title,
       down: bar.className.includes("down"),
       fill: bar.children[0].style,
-      // "… — +21,065 lines on the manual, …", the net the bar is drawn from.
-      net: Number(/— ([+−])([\d,]+) lines on the manual/.exec(total.title)
-        .slice(1)
+      // "… · net +21,065, 0.24× the …", the net the bar is drawn from.
+      net: Number(/· net ([+−])([\d,]+), /.exec(total.title).slice(1)
         .reduce((sign, n) => (sign === "−" ? "-" : "") + n.replaceAll(",", ""))),
+      // The scale the net is given against, which is what makes it readable.
+      scale: /([\d.]+)× the ([\d,]+) lines (.+) runs to now/.exec(total.title),
     };
   });
 }
@@ -158,6 +160,18 @@ Deno.test("the total column carries a figure and a bar", async () => {
     // Each side of the origin is half the bar, so nothing may run past 50%.
     assert(Number.isFinite(width) && width >= 0 && width <= 50,
       `bar fill is ${row.fill.width}`);
+
+    // A net with no scale beside it cannot be read: +500 lines is a rewrite of
+    // a short page and a rounding error on tutorials/. The scale is the row's
+    // own length, named, and it has to be the row's own — a hover that quoted
+    // the wrong row's length would look entirely reasonable.
+    assert(row.scale, `no scale beside the net: ${row.title}`);
+    const [, ratio, lines, named] = row.scale;
+    assertEquals(named, row.name, "the hover names another row's length");
+    assert(Number(lines.replaceAll(",", "")) > 0, "the row is nought lines long");
+    assertEquals(Number(ratio),
+      Number((Math.abs(row.net) / Number(lines.replaceAll(",", ""))).toFixed(2)),
+      `${row.name}: ${ratio}× does not follow from the net and the length`);
   }
 });
 

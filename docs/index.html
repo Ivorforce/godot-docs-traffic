@@ -104,12 +104,21 @@
     position: relative; display: inline-block; width: 3rem; height: .45rem;
     margin-left: .4rem; vertical-align: baseline; background: #eaeef2;
   }
-  .split i { position: absolute; top: 0; bottom: 0; background: #0969da; }
-  /* Shrinking rows are drawn dark rather than red. A page that lost lines has
-     not gone wrong — trimming is among the things this report exists to find —
-     and the tone is here to catch the eye on a stub a few pixels long, not to
-     grade it. It doubles as the one cue that survives a greyscale print. */
-  .split.down i { background: #424a53; }
+  /* Green out, red back — the one departure from the blue-and-amber families
+     the rest of the page keeps to (see CHURN_BINS in app.js). Those scales
+     rank things, and rank is what blue-to-amber is for; this bar is the only
+     signed quantity on the page, and green against red is read as a sign
+     faster than any pair that has to be learned first.
+     The page's blue was the alternative and is spent on the cell shading, in
+     the same table, where it means intensity: one hue across both would say
+     the two scales were one.
+     The colour repeats what the direction already says rather than replacing
+     it, so a reader who cannot separate the two hues loses the redundancy and
+     not the reading; it is there to catch a stub a few pixels long. Red means
+     shorter, not worse — trimming is among the things this report exists to
+     find — and it is the only place on this page it does not mean an error. */
+  .split i { position: absolute; top: 0; bottom: 0; background: #1a7f37; }
+  .split.down i { background: #cf222e; }
   /* The origin, where added and deleted are equal. It crosses the bar rather
      than sitting inside it so that it stays visible under a fill running
      either way. */
@@ -346,12 +355,11 @@ rare and does not show at this level: no top-level section has shrunk over the
 window, but drill in and 63 of the 512 rows the report can reach run the other
 way, in three of every five sections. It is also the one thing about a row that
 the figures cannot be read for — neither the total nor the quarters say
-anything about it — so the bar is where it has to live. The leftward direction
-is drawn dark rather than red: a page that lost lines has not gone wrong,
-trimming and merging being among the things this report was built to find, and
-red would grade the answer on the way to giving it. The tone is there to catch
-the eye on a bar four pixels long, which is also why it survives a greyscale
-print.</p>
+anything about it — so the bar is where it has to live. Green runs out and red
+runs back, repeating what the direction already says so that a bar four pixels
+long is still caught at a glance. Read red as <em>shorter</em> and not as
+<em>worse</em>: trimming and merging are among the things this report was built
+to find, and a page that lost lines may be the one that went right.</p>
 <p class="caption">One reason the bars lean right so consistently — the manual
 runs at <span class="churn-balance">…</span> of every changed line added — is
 that pages deleted outright are not in this table, being no longer part of the
