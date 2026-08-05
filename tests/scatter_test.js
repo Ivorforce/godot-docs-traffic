@@ -52,12 +52,15 @@ async function render(corpus = "manual", section = "") {
   const app = new Function("window", "document",
     `${body}\nreturn { renderScatter, charts, state, sectionRows };`)(win, document);
   app.charts.scatter = {
-    data: { datasets: [] }, options: { plugins: {} }, update() {},
+    data: { datasets: [] },
+    options: { plugins: {}, scales: { x: {} } },
+    update() {},
   };
   app.state.corpus = corpus;
   app.state.section = section;
   app.renderScatter();
   return { datasets: app.charts.scatter.data.datasets,
+           axisMin: app.charts.scatter.options.scales.x.min,
            rows: app.sectionRows().length };
 }
 
@@ -84,6 +87,41 @@ Deno.test("no page is plotted outside the axes it set", async () => {
       `${corpus}/${section}: the range Chart.js reads off the first and last ` +
       `point is not the range of the points, so the rest are clipped away`);
   }
+});
+
+/* The floor is a display convention, and a convention that goes unmarked is a
+   misread left edge: a reader takes the leftmost points for the least-viewed
+   pages there are. Three things have to hold together for it to stay honest —
+   nothing is drawn left of the floor, everything drawn there is marked, and the
+   axis leaves the stack room to sit inside the plot instead of half outside
+   it. The last one is conditional, so it is checked in both directions. */
+Deno.test("pages below the floor are drawn at it, marked, and left of nothing", async () => {
+  let clampedSomewhere = 0;
+  for (const [corpus, section] of VIEWS) {
+    const { datasets, axisMin } = await render(corpus, section);
+    const points = datasets.flatMap((d) => d.data);
+    const floor = Math.min(...points.map((p) => p.x));
+    assert(floor >= 10, `${corpus}/${section}: a point sits at ${floor}, below the floor`);
+
+    for (const p of points) {
+      assertEquals(p.clamped, p.x === 10 && p.pv < 10,
+        `${corpus}/${section}: ${p.label} at ${p.pv} pageviews is marked wrong`);
+    }
+
+    const clamped = points.filter((p) => p.clamped);
+    clampedSomewhere += clamped.length;
+    if (clamped.length) {
+      assert(axisMin !== undefined && axisMin < 10,
+        `${corpus}/${section}: ${clamped.length} pages stand on the floor and ` +
+        `the axis starts at ${axisMin}, so the stack draws half outside the plot`);
+    } else {
+      assertEquals(axisMin, undefined,
+        `${corpus}/${section}: nothing is on the floor, so the axis should ` +
+        `not be held open below it`);
+    }
+  }
+  assert(clampedSomewhere > 0,
+    "no view had a page below the floor, so none of this was exercised");
 });
 
 Deno.test("each series is ascending in pageviews, which is what earns that", async () => {

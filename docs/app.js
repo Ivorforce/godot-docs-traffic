@@ -378,6 +378,22 @@ function binFor(row) {
   return CHURN_BINS.find((b) => turnover(row) <= b.max);
 }
 
+/* The scatter's left wall. Under ten pageviews a month the differences are not
+   differences — nine visitors against none is the same page either way — and on
+   a log axis those few pages are expensive: in the manual the six below ten sit
+   in a band a quarter of the axis wide that is otherwise empty, taken from the
+   five hundred pages above them.
+
+   So they are drawn at ten and marked hollow, rather than dropped. This chart
+   is for finding pages nobody opens, and the ones nobody opens at all are the
+   last points that should go missing from it. The tooltip gives the true count,
+   which for those six is zero. */
+const PV_FLOOR = 10;
+
+function plotPv(pv) {
+  return Math.max(pv, PV_FLOOR);
+}
+
 function median(values) {
   if (!values.length) return 0;
   const s = [...values].sort((a, b) => a - b);
@@ -497,7 +513,22 @@ function buildScatter() {
              } } },
       },
       plugins: {
-        legend: { labels: { boxWidth: 8, usePointStyle: true, font: { size: 11 } } },
+        // The keys name the colour bins, so they are drawn from the bins. The
+        // default takes each key's style from its dataset's first point, which
+        // here is the leftmost — the one most likely to be sitting on the floor
+        // drawn hollow, which would empty the key out for a reason that has
+        // nothing to do with the bin it names.
+        legend: { labels: { boxWidth: 8, usePointStyle: true, font: { size: 11 },
+          generateLabels: (chart) => chart.data.datasets.map((ds, i) => ({
+            text: ds.label,
+            fillStyle: ds.borderColor,
+            strokeStyle: ds.borderColor,
+            lineWidth: 0,
+            pointStyle: "circle",
+            hidden: !chart.isDatasetVisible(i),
+            datasetIndex: i,
+          })),
+        } },
         crosshairs: {},
         tooltip: { callbacks: {
           // The colouring is a ratio, so both sides of it are given here: the
@@ -880,10 +911,9 @@ function renderScatter() {
   const groups = new Map(CHURN_BINS.map((b) => [b.label, []]));
   for (const row of rows) {
     groups.get(binFor(row).label).push({
-      // A page with no pageviews at all would fall off a log axis; plotting it
-      // just below 1 keeps it visible without claiming it was read.
-      x: Math.max(row[PV], 0.5),
+      x: plotPv(row[PV]),
       y: Math.max(row[WORDS], 1),
+      clamped: row[PV] < PV_FLOOR,
       pv: row[PV], words: row[WORDS], i18n: row[I18N],
       lines: row[LINES] || 0,
       length: row[LENGTH],
@@ -906,12 +936,23 @@ function renderScatter() {
     // through a binary search, so unsorted points also answer with the wrong
     // page.
     data: groups.get(b.label).sort((p, q) => p.x - q.x),
-    backgroundColor: b.color,
-    pointRadius: 2.5,
+    // Hollow for the pages held at the floor: they are stacked on a line that
+    // is not their own position, and a point that says so is the difference
+    // between a convention and a false reading of the left edge.
+    backgroundColor: (ctx) => (ctx.raw && ctx.raw.clamped ? "transparent" : b.color),
+    borderColor: b.color,
+    borderWidth: (ctx) => (ctx.raw && ctx.raw.clamped ? 1 : 0),
+    pointRadius: (ctx) => (ctx.raw && ctx.raw.clamped ? 3 : 2.5),
     pointHoverRadius: 5,
   }));
+  // Room to the left of the floor, so the stack sits inside the plot rather
+  // than half of it outside — but only when something is standing there. A
+  // section whose least-viewed page has thousands would otherwise open on an
+  // axis three empty decades wide.
+  charts.scatter.options.scales.x.min =
+    rows.some((r) => r[PV] < PV_FLOOR) ? PV_FLOOR * 0.6 : undefined;
   charts.scatter.options.plugins.crosshairs = {
-    x: median(rows.map((r) => Math.max(r[PV], 0.5))),
+    x: median(rows.map((r) => plotPv(r[PV]))),
     y: median(rows.map((r) => Math.max(r[WORDS], 1))),
   };
   charts.scatter.update();
