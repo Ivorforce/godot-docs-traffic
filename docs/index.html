@@ -88,6 +88,12 @@
   }
   #churn-grid td.cell { min-width: 2.4rem; }
   #churn-grid td.empty { color: #adb5bd; }
+  /* A rule where each year starts. Eight quarters read as one undifferentiated
+     run of columns, and placing a cell in time meant reading the header and
+     counting back to it; the rule says where the years break once, in the same
+     position in every row. Darker than the total's divider on purpose — that
+     one separates a figure of a different kind, this one marks the axis. */
+  #churn-grid th.year, #churn-grid td.year { border-left: 1px solid #8c959f; }
   /* The window total, set apart by a rule because it is the one figure in the
      row that is not a quarter — without it the eye reads the column as a ninth
      one and wonders why it is so large. */
@@ -324,7 +330,9 @@ whole row leaves its profile intact, where a moving one would bend the shape the
 row exists to show.</p>
 <p class="caption">Columns are calendar quarters, not the last eight counted
 back from today, so a closed column never changes again and two versions of this
-report can be compared. The price is the last column, marked <strong>*</strong>:
+report can be compared. A <strong>rule</strong> runs down the grid where each
+year begins, so a cell can be placed in time without reading back along the
+header. The price is the last column, marked <strong>*</strong>:
 it stops at the docs commit rather than at the end of its quarter, so it is short
 by however much of the period is still to come and a fall at the right edge may
 be nothing but that. Quarters rather than months because months were too fine —

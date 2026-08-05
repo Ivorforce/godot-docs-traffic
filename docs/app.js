@@ -890,17 +890,27 @@ function renderChurn() {
     return node;
   };
 
+  // Where a new year begins, taken from the months behind each column rather
+  // than from its label. Drawn as a rule down the grid: the labels carry the
+  // year already, but eight of them abbreviated to "Q1 '25" are read as one run
+  // of quarters, and placing a cell in time meant counting columns back to the
+  // header. The first column starts no year — the grid opens mid-year and a
+  // rule down its left edge would be a border, not a boundary.
+  const yearStart = CHURN.periods.map((_, i) =>
+    i > 0 && CHURN.months[i][0].slice(0, 4) !== CHURN.months[i - 1][0].slice(0, 4));
+
   const head = document.createElement("tr");
   head.appendChild(cell("th", "page or section"));
-  for (const period of CHURN.periods) {
+  CHURN.periods.forEach((period, i) => {
     // The newest column stops at the docs commit rather than at the end of its
     // quarter, so it is short by however much of the period is still to come.
     // Marked in the header, because read as a full column it looks like work
     // falling off.
     const th = cell("th", period.label + (period.partial ? "*" : ""));
     if (period.partial) th.title = "part-period: ends at the docs commit";
+    if (yearStart[i]) th.className = "year";
     head.appendChild(th);
-  }
+  });
   const total = cell("th", "changed");
   total.className = "total";
   total.title = "lines changed over the whole window; the bar runs right for a " +
@@ -936,7 +946,7 @@ function renderChurn() {
     tr.appendChild(label);
     child.periods.forEach((lines, i) => {
       const td = cell("td", lines ? compact(lines) : "·");
-      td.className = lines ? "cell" : "cell empty";
+      td.className = (lines ? "cell" : "cell empty") + (yearStart[i] ? " year" : "");
       td.title = lines
         ? `${num(lines)} lines changed in ${CHURN.periods[i].label} · ` +
           `${(lines / length).toFixed(2)}× the ${num(child.length)} lines ` +

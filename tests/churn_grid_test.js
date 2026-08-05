@@ -146,6 +146,31 @@ Deno.test("an unedited period is left empty rather than shaded", async () => {
   }
 });
 
+/* The rule down the column where a year begins. A rule in the wrong place is
+   the failure worth a test: it draws exactly as cleanly as a right one and
+   quietly puts a cell a quarter out. So the columns it is expected in are
+   derived from the labels the header prints, which is the reader's other source
+   for the same fact and the one they would check it against. */
+Deno.test("a rule falls where the year turns, and nowhere else", async () => {
+  const { grid } = await render();
+  const [head, body] = grid.children;
+  // Between the row's name and the window total, both of which end a run
+  // rather than start a year.
+  const columns = head.children[0].children.slice(1, -1);
+  const years = columns.map((th) => /'(\d\d)/.exec(th.textContent)[1]);
+  const turns = years.map((year, i) => i > 0 && year !== years[i - 1]);
+  assert(turns.some(Boolean), `no year turns across ${years.join(", ")}`);
+
+  assertEquals(columns.map((th) => th.className === "year"), turns,
+    "the header's rules do not fall where its own labels turn the year");
+  for (const tr of body.children) {
+    assertEquals(
+      tr.cells.slice(0, -1).map((td) => td.className.split(" ").includes("year")),
+      turns,
+      `${tr.children[0].textContent}: rules out of step with the header`);
+  }
+});
+
 Deno.test("the total column carries a figure and a bar", async () => {
   const { grid, selected } = await render();
   const [head] = grid.children;
