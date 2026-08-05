@@ -358,13 +358,14 @@ the API path.
 
 ### Verifying the page
 
-One part of `docs/app.js` is covered: `deno test --allow-read tests/` runs the
-churn grid's renderer against the data the page ships. It exists because shading
-is set through a style string, and an alpha of `NaN` is not an error in a
-browser — the declaration is dropped, every cell goes white, and the page carries
-on. That is what happened when a refactor took a `top` declaration out and the
-name resolved to `window.top`: no console output, nothing for `deno check` to
-see.
+Two parts of `docs/app.js` are covered: `deno test --allow-read tests/` runs the
+churn grid's renderer and every link the page writes out against the data it
+ships. The grid's tests exist because shading is set through a style string, and
+an alpha of `NaN` is not an error in a browser — the declaration is dropped,
+every cell goes white, and the page carries on. That is what happened when a
+refactor took a `top` declaration out and the name resolved to `window.top`: no
+console output, nothing for `deno check` to see. The link tests are there for
+the same kind of silence: a wrong href renders exactly as well as a right one.
 
 **The rest of the page is not covered.** Everything else runs against the Python
 payload, and the payload has been right every time the page was wrong. The bug

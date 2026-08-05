@@ -17,6 +17,15 @@
   h3 { margin: 1.25rem 0 .25rem; font-size: 1rem; }
   a { color: #0969da; text-decoration: none; }
   a:hover { text-decoration: underline; }
+  /* Links drawn as the thing they are: a figure in a column of figures, a row
+     name in a grid where blue already means how hard that row was worked. A
+     table with three blue columns reads as a table of links rather than one of
+     data, and in the churn grid it would put the page's accent colour against
+     its own shading. The pointer and the hover say where these lead; the
+     captions say it in words, since a hover is not something a reader finds by
+     itself. */
+  a.quiet { color: inherit; }
+  a.quiet:hover { color: #0969da; }
   .meta { color: #57606a; margin-bottom: 1.25rem; }
   .framing { margin-bottom: 1.25rem; }
   .meta, .framing, .caption, dl.defs dd, footer ul, footer p, .notice p { max-width: 72ch; }
@@ -285,8 +294,10 @@ changed.</p>
 the git history of the docs source. Figures are rounded (<code>24k</code>,
 <code>1.3k</code>); hover any cell for the exact one. Rows follow the path bar,
 the same as the charts above, so drilling into a section replaces them with what
-is inside it. Empty cells are the reason it is here: a part of the docs untouched
-for a quarter is the one thing the pull request feed does not show.</p>
+is inside it — and a row name is that drill: a section opens the report on
+itself, a page narrows the table below to that page, where its own links out
+are. Empty cells are the reason it is here: a part of the docs untouched for a
+quarter is the one thing the pull request feed does not show.</p>
 <p class="caption">The <strong>shading</strong> is those lines against how long
 the row is now, so it says something the figures do not. In Q4 '25
 <code>engine_details/</code> changed 1,353 lines against
@@ -327,6 +338,10 @@ narrow by path — it reaches this table and nothing else on the page.
 counted, code blocks and table markup not. <em>Lines changed</em> is this page's
 share of the churn above, over <span class="churn-window">…</span>, with the same
 bar the grid draws; the figures behind it are on hover.</p>
+<p class="caption">Each column leads where it came from: the page name opens the
+page, the word count the source file it was counted in, and the lines changed
+that page's commits — the two source links pinned to the docs commit at the top,
+so what opens is what was measured.</p>
 
 <h2>Getting started, tutorial by tutorial</h2>
 <div class="chart-box tall"><canvas id="chart-funnel"></canvas></div>
@@ -345,7 +360,8 @@ people entered there. The trend across a tutorial is the reliable part; the gap
 between two neighbouring points is not, since a few hundred pageviews either way
 is a visible part of the line.</p>
 <p class="caption">One departure is too large to read that way.
-<code>signals.html</code>, the last step of <code>step_by_step</code>, draws
+<a href="https://docs.godotengine.org/en/stable/getting_started/step_by_step/signals.html"><code>signals.html</code></a>,
+the last step of <code>step_by_step</code>, draws
 more than the two steps before it — 14,397 pageviews against 8,660 and 5,987.
 Direct arrival probably explains it: a concept people come looking for by name
 rather than one they reach by working forward. It is the one page in the guide
@@ -364,6 +380,9 @@ traffic, and are not forwarded anywhere — so these readers land on the
 does not yet cover; most removed pages <em>are</em> forwarded by it and are left
 out. A date inside the reporting period means the page was readable for part of
 it, so its count is partly ordinary reading rather than missed arrivals.</p>
+<p class="caption">The URL opens what these readers get, the one link here meant
+to fail; the date opens that page's commits, ending in the one that removed it,
+which is the record a redirect would have to be written from.</p>
 <p class="caption">Read the Docs applies its own redirects before the page
 renders, so those never reach this report at all — absence from this table means
 forwarded or never removed, not unmeasured. The redirects file is read at the

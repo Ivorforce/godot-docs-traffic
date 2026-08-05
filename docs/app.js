@@ -101,13 +101,23 @@ function readHash() {
   state.footprint = p.get("f") === "pages" ? "pages" : "words";
 }
 
-function writeHash() {
+/* The hash for a state, which is also the hash for a link to it: a row that
+   drills into a section is written as an anchor carrying this rather than as a
+   click handler, so it can be opened in a second tab, copied, and followed by
+   anything that reads links. Taken from a state object rather than from the
+   live one so a link can name a view that is not the one on screen. */
+function hashFor(next) {
   const p = new URLSearchParams();
-  if (state.section) p.set("s", state.section);
-  if (state.corpus !== "manual") p.set("c", state.corpus);
-  if (state.filter) p.set("q", state.filter);
-  if (state.footprint !== "words") p.set("f", state.footprint);
+  if (next.section) p.set("s", next.section);
+  if (next.corpus !== "manual") p.set("c", next.corpus);
+  if (next.filter) p.set("q", next.filter);
+  if (next.footprint !== "words") p.set("f", next.footprint);
   const q = p.toString();
+  return q ? "#" + q : "";
+}
+
+function writeHash() {
+  const q = hashFor(state).slice(1);
   // Changing scope is a navigation and Back should undo it; typing in the filter
   // or flipping a chart mode only rewrites the current entry. Comparing against
   // the URL rather than against previous state also makes this correct on
@@ -119,6 +129,56 @@ function writeHash() {
   const url = q ? "#" + q : location.pathname;
   if (moved) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
+}
+
+// ---- links out --------------------------------------------------------------
+
+const SITE = "https://docs.godotengine.org";
+const REPO = "https://github.com/godotengine/godot-docs";
+
+/* URL -> the source file behind it, inverting scripts/inventory.py's url_for.
+   The only place that mapping is written twice, so a test walks every page in
+   data/inventory.json against it rather than leaving 1,590 links to be spot
+   checked by hand.
+
+   It holds for a page that has since been removed as well, which is what the
+   removed-pages table links by: git resolves a path that no longer exists, so
+   the history of one ends in the commit that deleted it. */
+function srcPath(url) {
+  const rest = url.slice(PREFIX.length);
+  return rest ? rest.replace(/\.html$/, ".rst") : "index.rst";
+}
+
+// Pinned to the docs commit every figure on this page was taken from, so the
+// file that opens is the one the word count and the length were read off — not
+// whatever the branch holds by the time somebody follows the link.
+function sourceUrl(url) {
+  return `${REPO}/blob/${DOCS.commit}/${srcPath(url)}`;
+}
+
+// The commits behind one page. Not narrowed to the churn window: GitHub's date
+// filter drops the path scope, and the window is the newest two years of what
+// this shows anyway.
+function historyUrl(url) {
+  return `${REPO}/commits/${DOCS.commit}/${srcPath(url)}`;
+}
+
+function link(href, text, title) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.textContent = text;
+  if (title) a.title = title;
+  return a;
+}
+
+/* A link drawn as the thing it is rather than as a link: a figure in a column
+   of figures, a row name in a grid whose blue already means something else.
+   Colour arrives on hover, where it says the same thing without spending the
+   page's one accent on every cell. */
+function quietLink(href, text, title) {
+  const a = link(href, text, title);
+  a.className = "quiet";
+  return a;
 }
 
 // ---- selection --------------------------------------------------------------
@@ -224,7 +284,12 @@ function childrenOf(section) {
     const cut = rest ? rest.indexOf("/") : -1;
     const key = !rest ? "(landing page)" : cut === -1 ? rest : rest.slice(0, cut);
     const entry = out.get(key) ||
-      { key, pv: 0, pages: 0, words: 0, length: 0, churn: 0, net: 0,
+      // `url` is the page itself where a child is one — a directory has no page
+      // to point at, and only the grid's row names use it. A file name and a
+      // directory name at the same level cannot collide, since one of them ends
+      // in .html, so the first row to make the entry is the only one.
+      { key, url: cut === -1 ? DOCS.paths[row[PATH]] : null,
+        pv: 0, pages: 0, words: 0, length: 0, churn: 0, net: 0,
         periods: CHURN.periods.map(() => 0), dir: cut !== -1 };
     entry.pv += row[PV];
     entry.pages += 1;
@@ -975,17 +1040,34 @@ function renderTable() {
 
     const td0 = document.createElement("td");
     td0.className = "path";
-    const a = document.createElement("a");
-    a.href = "https://docs.godotengine.org" + path;
-    a.textContent = path.slice(PREFIX.length) || "(index)";
-    a.title = "Open the page";
-    td0.appendChild(a);
+    td0.appendChild(link(SITE + path, path.slice(PREFIX.length) || "(index)",
+                         "Open the page"));
     tr.appendChild(td0);
 
     for (const c of COLUMNS.slice(1)) {
       const td = document.createElement("td");
       const v = c.get(row);
-      td.textContent = c.fmt ? c.fmt(v) : v;
+      const text = c.fmt ? c.fmt(v) : String(v);
+      // Two of the three figures lead to where they came from: the source file
+      // the words were counted in, and the commits the lines were counted from.
+      // Which is the move this report exists to prompt — a page it says
+      // something about is one somebody then has to open — and it costs no
+      // column, since a figure that leads somewhere is still the figure.
+      //
+      // Pageviews link nowhere. Plausible's own dashboard is the only place
+      // that number leads and it is not public, so the column stays plain
+      // rather than sending a reader to a login page.
+      if (c.key === WORDS) {
+        td.appendChild(quietLink(sourceUrl(path), text,
+                                 "The source file this count was taken from"));
+      } else if (c.key === LINES) {
+        // No title here: this cell's own hover carries the figures behind the
+        // bar, and a title on the anchor would cover them with a sentence about
+        // where the link goes. That sentence rides along at the end of them.
+        td.appendChild(quietLink(historyUrl(path), text));
+      } else {
+        td.textContent = text;
+      }
       // The one column drawn as a shape rather than read as a figure keeps its
       // figures behind it: the bar is what the eye compares down the column,
       // and the numbers are what a maintainer quotes.
@@ -1001,9 +1083,11 @@ function renderTable() {
             `${num(added)} added, ${num(churn - added)} deleted · ` +
             `net ${net < 0 ? "−" : "+"}${num(Math.abs(net))}, ` +
             `${Math.abs(net / Math.max(row[LENGTH], 1)).toFixed(2)}× the ` +
-            `${num(row[LENGTH])} lines this page runs to now`;
+            `${num(row[LENGTH])} lines this page runs to now · ` +
+            `opens the commits behind them`;
         } else {
-          td.title = "not edited over the churn window";
+          td.title = "not edited over the churn window · " +
+                     "opens the commits behind this page";
         }
       }
       tr.appendChild(td);
@@ -1112,11 +1196,25 @@ function renderChurn() {
     // profile the row exists to show.
     const length = Math.max(child.length, 1);
     const tr = document.createElement("tr");
-    const label = cell("th", name);
+    const label = cell("th", "");
     label.scope = "row";
-    // The column is narrow enough to clip a long page name, so the full one is
-    // always available without leaving the row.
-    label.title = name;
+    // Every name in this column stays inside the report: a section opens it on
+    // itself, the move the path bar's menu makes, and a page narrows the table
+    // below to that page, the move a point on the scatter makes. A row of this
+    // grid is a place in the report, and the links out of the report all sit in
+    // one place — the table, where a page carries its own docs page, source
+    // file and commits. Sending some rows here to GitHub and others to the docs
+    // meant a column where the destination had to be guessed from the name.
+    //
+    // The column is narrow enough to clip a long page name, so the full one
+    // stays in the title, which the anchor inherits.
+    const target = state.section ? state.section + "/" + child.key : child.key;
+    const view = child.dir ? { section: target } : { filter: child.url };
+    label.title = child.dir
+      ? `${name} — open the report on this section`
+      : `${name} — show this page in the table below`;
+    label.appendChild(
+      quietLink(hashFor(Object.assign({}, state, view)) || "#", name));
     tr.appendChild(label);
     child.periods.forEach((lines, i) => {
       const td = cell("td", lines ? compact(lines) : "·");
@@ -1225,18 +1323,31 @@ function renderStale() {
     const tr = document.createElement("tr");
     const td0 = document.createElement("td");
     td0.className = "path";
-    td0.textContent = url;
+    // The URL still resolves — to the "page not found" page, which is the whole
+    // finding. Following it is how a reader sees what these arrivals see, and
+    // is the one link on this page that is meant to fail.
+    td0.appendChild(link(SITE + url, url,
+                         "Opens the page not found these readers get"));
     const td1 = document.createElement("td");
     td1.textContent = num(pv);
     const td2 = document.createElement("td");
     // A removal inside the traffic window means the page was live for part of
     // it, so the count is not evidence of a dead link. Say so in the row
     // rather than leaving the reader to compare dates.
-    td2.textContent = !removedTs
+    const when = !removedTs
       ? "—"
       : removedTs >= DOCS.windowStart
         ? `${ageLabel(removedTs)} (during)`
         : ageLabel(removedTs);
+    // The date leads to the history ending in the removal, which is the record
+    // a redirect for this URL would have to be written from.
+    if (removedTs) {
+      td2.appendChild(quietLink(historyUrl(url), when,
+                                "The commits behind this page, ending in the " +
+                                "one that removed it"));
+    } else {
+      td2.textContent = when;
+    }
     tr.append(td0, td1, td2);
     tbody.appendChild(tr);
   }
@@ -1261,6 +1372,21 @@ function renderStale() {
 
 function bindControls() {
   window.addEventListener("popstate", () => { readHash(); render(); });
+  // Following a link inside the page — a row name in the churn grid — is a
+  // fragment navigation, which fires this and not popstate. pushState and
+  // replaceState fire neither, so writeHash cannot call this back on itself.
+  window.addEventListener("hashchange", () => {
+    const before = state.filter;
+    readHash();
+    render();
+    // A row that narrows the table is the one move whose effect is off screen:
+    // the grid is a table's height above it, and a reader who saw nothing
+    // happen would conclude the name was not a link after all. The same scroll
+    // the scatter makes for the same reason.
+    if (state.filter && state.filter !== before) {
+      document.getElementById("pages-table").scrollIntoView({ behavior: "smooth" });
+    }
+  });
 
   const filter = document.getElementById("filter");
   let timer = null;
