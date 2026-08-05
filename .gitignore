@@ -8,3 +8,8 @@ __pycache__/
 data/raw/
 data/inventory.json
 docs/data.js
+
+# Built from public repositories rather than from analytics, so no clearance
+# question — kept out for the same reason as inventory.json, that a generated
+# file in git is a second copy of something a script already produces.
+data/l10n.json

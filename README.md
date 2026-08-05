@@ -128,6 +128,27 @@ nothing sensitive ever entered history.
   point. The sparse spec is reapplied on every run, so a cache built by an older
   revision picks up newly needed files rather than silently missing them.
   Nothing of this reaches GitHub: `.cache/` is gitignored.
+- `scripts/l10n.py` — the mirror of `inventory.py`, one repository over. Clones
+  `godot-docs-l10n` and records, per page and language, how many of the page's
+  source words are translated, into `data/l10n.json` (94 KB, three seconds).
+  Shallow and blob-filtered where the docs clone can be neither, because nothing
+  here asks anything of the history — only the current state of the
+  translations — at ~120 MB for thirteen languages and 6,565 `.po` files.
+
+  Coverage is **word-weighted**, and parsing the files rather than reading
+  Weblate's percentages is the entire reason this script exists. Short strings
+  get translated first, so a message count overstates progress everywhere and
+  worst where the work is left: `tutorials/2d/index` is four of its six messages
+  done — 67% — and the four are `2D`, `Rendering`, `Physics and movement` and
+  `Tools`, while the two remaining carry 62 of the page's 68 words. By words it
+  is 9% done. The same gap holds across pages and languages (`gdscript_basics`
+  in Japanese: 79% by message, 62% by words), always in that direction.
+
+  The denominator is `sphinx/templates/<page>.pot`, which holds every source
+  string, and it cannot be the language's own `.po`, which holds only what
+  someone has already translated — `ja/tutorials/3d/volumetric_fog.po` carries
+  one message where the template carries 85. A first version read the `.po`
+  alone and reported every page in every language as 100% translated.
 - `scripts/aggregate.py` — joins the two into `docs/data.js`, a single
   `window.DATA = {…}` assignment.
 - `docs/` — the page. Hand-written `index.html`, vanilla `app.js`, and a

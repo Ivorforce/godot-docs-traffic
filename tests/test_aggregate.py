@@ -25,6 +25,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import aggregate  # noqa: E402
 import fetch  # noqa: E402
 import inventory  # noqa: E402
+import l10n  # noqa: E402
 import plausible  # noqa: E402
 import store  # noqa: E402
 
@@ -833,6 +834,109 @@ class TestAgainstCsvExport(unittest.TestCase):
                           if k.startswith("/en/stable/"))
         ours = sum(self.ours.values())
         self.assertGreater(ours, export_docs)
+
+
+class TestPoParsing(unittest.TestCase):
+    """The gettext reader behind coverage.
+
+    Its failure mode is silent and total: a parser that reads the language's own
+    .po as if it held every source string reports 100% coverage for every page
+    in every language, which is what the first attempt at this did.
+    """
+
+    def parse(self, text):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "x.po"
+            p.write_text(text, encoding="utf-8")
+            return list(l10n.po_entries(p))
+
+    HEADER = ('#, fuzzy\nmsgid ""\nmsgstr ""\n'
+              '"Project-Id-Version: x\\n"\n"Language: de\\n"\n\n')
+
+    def test_the_header_is_not_an_entry(self):
+        self.assertEqual(self.parse(self.HEADER), [])
+
+    def test_the_headers_fuzzy_flag_does_not_leak_onto_the_next_entry(self):
+        """Every one of the 6,565 files here opens with a fuzzy-flagged header,
+        so a flag that survived the blank line would mark the whole manual
+        untranslated."""
+        out = self.parse(self.HEADER + 'msgid "Hello there"\nmsgstr "Hallo"\n\n')
+        self.assertEqual(out, [("Hello there", "Hallo", False)])
+
+    def test_a_real_fuzzy_entry_is_flagged(self):
+        out = self.parse(self.HEADER + '#, fuzzy\nmsgid "One"\nmsgstr "Eins"\n\n')
+        self.assertEqual(out[0][2], True)
+
+    def test_multiline_strings_are_joined(self):
+        out = self.parse(self.HEADER +
+                         'msgid ""\n"one two "\n"three"\nmsgstr "x"\n\n')
+        self.assertEqual(out[0][0], "one two three")
+
+    def test_untranslated_entries_keep_an_empty_msgstr(self):
+        """A template is exactly this: every msgstr empty. Coverage counts the
+        non-empty ones, so the two file kinds read through one parser."""
+        out = self.parse(self.HEADER + 'msgid "Untouched"\nmsgstr ""\n\n')
+        self.assertEqual(out, [("Untouched", "", False)])
+
+    def test_obsolete_entries_are_skipped(self):
+        out = self.parse(self.HEADER + '#~ msgid "Gone"\n#~ msgstr "Weg"\n\n')
+        self.assertEqual(out, [])
+
+    def test_plurals_and_context_fail_loudly(self):
+        """Neither appears in any of the 6,565 files, so they are refused rather
+        than half-handled — a wrong count here is invisible downstream."""
+        for line in ('msgid_plural "many"', 'msgctxt "menu"'):
+            with self.assertRaises(ValueError):
+                self.parse(self.HEADER + f'msgid "One"\n{line}\nmsgstr "x"\n\n')
+
+    def test_the_last_entry_needs_no_trailing_blank_line(self):
+        out = self.parse(self.HEADER + 'msgid "Last"\nmsgstr "Letzte"')
+        self.assertEqual(out, [("Last", "Letzte", False)])
+
+
+class TestCoverageWeighting(unittest.TestCase):
+    """Coverage is weighted by words, not by message count.
+
+    Short strings get translated first, so a message count overstates progress
+    everywhere and worst where the work is left. tutorials/2d/index really is
+    four of six messages done and 9% of its words.
+    """
+
+    def test_words_use_the_inventory_rule(self):
+        self.assertEqual(l10n.words("Physics and movement"), 3)
+        self.assertEqual(l10n.words("| --- | === |"), 0)
+        self.assertEqual(l10n.words("Node2D res:// 42"), 2)
+
+    def test_headings_and_prose_weigh_differently(self):
+        headings = sum(l10n.words(m) for m in
+                       ["2D", "Rendering", "Physics and movement", "Tools"])
+        prose = l10n.words(
+            "Godot includes a dedicated 2D renderer and 2D physics engine, as "
+            "well as tools for building tile maps and sprite animations")
+        self.assertEqual(headings, 6)
+        self.assertLess(headings / (headings + prose), 0.25,
+                        "four of six messages, well under a quarter of the words")
+
+
+class TestLanguageCodes(unittest.TestCase):
+    """The translation repository spells languages the way gettext does; the
+    docs URLs, and so the traffic data, spell them lowercase with a hyphen."""
+
+    def test_region_codes_normalise_to_the_url_spelling(self):
+        self.assertEqual(l10n.lang_code("zh_CN"), "zh-cn")
+        self.assertEqual(l10n.lang_code("pt_BR"), "pt-br")
+
+    def test_plain_codes_are_unchanged(self):
+        self.assertEqual(l10n.lang_code("de"), "de")
+
+    def test_every_shipped_language_matches_a_code_the_traffic_data_uses(self):
+        """Both sides are small and known, so the join can be asserted rather
+        than hoped for."""
+        seen = {"cs", "de", "es", "fr", "it", "ja", "ko", "pl", "pt-br", "ru",
+                "uk", "zh-cn", "zh-tw"}
+        self.assertEqual({l10n.lang_code(d) for d in
+                          ["cs", "de", "es", "fr", "it", "ja", "ko", "pl",
+                           "pt_BR", "ru", "uk", "zh_CN", "zh_TW"]}, seen)
 
 
 if __name__ == "__main__":
