@@ -149,7 +149,7 @@
   .table-wrap { max-height: 30rem; overflow-y: auto; margin-top: .5rem; }
   .table-wrap thead th { position: sticky; top: 0; }
   /* min-height holds the row open before app.js has filled it, so the sticky
-     bar does not change height under the charts on first paint. */
+     bar does not change height under the rest of the page on first paint. */
   .crumbs {
     display: flex; flex-wrap: wrap; align-items: center; gap: .1rem;
     font-size: .9rem; flex: 1 1 auto; min-width: 0; min-height: 1.75rem;
@@ -228,16 +228,16 @@ delete.</p>
 
 <p id="error" hidden></p>
 
-<div class="stats" id="stats"></div>
-<p class="caption">The English <code>/en/stable/</code> docs over
-<span class="period-inline">…</span>. The path bar below sets what everything
-down to the page-by-page table is about; these totals follow only its first
-choice — the hand-written manual, the manual with the class reference counted in,
-or the class reference on its own.</p>
-
 <div class="controls">
   <span class="crumbs" id="crumbs"></span>
 </div>
+
+<div class="stats" id="stats"></div>
+<p class="caption">The English <code>/en/stable/</code> docs over
+<span class="period-inline">…</span>. The path bar above sets what everything
+down to the page-by-page table is about; these totals follow only its first
+choice — the hand-written manual, the manual with the class reference counted in,
+or the class reference on its own.</p>
 
 <h2>Attention against footprint, part by part
   <span class="range-group" role="group" aria-label="Footprint" id="footprint-mode">
