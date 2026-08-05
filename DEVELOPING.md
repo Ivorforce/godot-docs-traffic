@@ -11,15 +11,20 @@ redirect walk against a loop entered from either end, the anomaly bars against a
 burst from zero — and the invariants the page depends on, including a check that
 no identity-derived number reaches the page, and one that per-visitor figures are
 still implausible, so if the instance is ever fixed the suite says so instead of
-the constraint quietly outliving its reason. Where the CSV export is present they
-also cross-check page totals against it, since it was produced independently of
-the API path.
+the constraint quietly outliving its reason.
+
+One class is off by default: `PLAUSIBLE_EXPORT=/path/to/unzipped-export` points
+the suite at a dashboard CSV export and cross-checks page totals against it,
+since it was produced independently of the API path. The export is a second copy
+of the same analytics and stays out of the repository, so without that variable
+the class skips.
 
 ## Verifying the page
 
 Two parts of `docs/app.js` are covered: `deno test --allow-read tests/` runs the
 churn grid's renderer and every link the page writes out against the data it
-ships. The grid's tests exist because shading is set through a style string, and
+ships. The monthly workflow runs it too, after `aggregate.py`, on the data it is
+about to commit. The grid's tests exist because shading is set through a style string, and
 an alpha of `NaN` is not an error in a browser — the declaration is dropped,
 every cell goes white, and the page carries on. That is what happened when a
 refactor took a `top` declaration out and the name resolved to `window.top`: no

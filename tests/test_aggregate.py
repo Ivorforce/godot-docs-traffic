@@ -14,6 +14,7 @@ them still holds — so the pipeline would notice if the instance were fixed.
 
 import datetime
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -507,8 +508,11 @@ class TestVisitorMetricsStillUnreliable(unittest.TestCase):
             "fixed, revisit METHOD.md and consider using visitor metrics")
 
 
-EXPORT = Path("/Users/lukas/dev/research/"
-              "plausible-export-godotengine.org-2026-07-04_2026-08-03")
+# The CSV export lives outside the repository, since it is a second copy of the
+# same analytics. Point PLAUSIBLE_EXPORT at an unzipped export directory to run
+# the cross-check; without one, TestAgainstCsvExport skips.
+EXPORT = Path(os.environ.get("PLAUSIBLE_EXPORT",
+                             ROOT / ".cache" / "plausible-export"))
 DATA_JS = ROOT / "docs" / "data.js"
 
 
@@ -1136,9 +1140,10 @@ class TestRemovalDates(unittest.TestCase):
 class TestAgainstCsvExport(unittest.TestCase):
     """Cross-check against the dashboard CSV export.
 
-    The export covers 2026-07-04..2026-08-03 and this report covers July, so the
-    windows overlap but do not match — the comparison is deliberately loose. It
-    exists to catch a wrong hostname filter or a broken path join, either of
+    An export covers the window it was taken over — the one this was written
+    against runs 2026-07-04..2026-08-03 against a report covering July — so the
+    windows overlap but do not match, and the comparison is deliberately loose.
+    It exists to catch a wrong hostname filter or a broken path join, either of
     which would be off by far more than the window difference.
     """
 

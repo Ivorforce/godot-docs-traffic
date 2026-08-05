@@ -36,6 +36,14 @@ jobs:
       # about to be committed rather than the one already in git.
       - run: python3 -m unittest discover tests
 
+      # The payload has been right every time the page was wrong, so the deno
+      # tests — which render against the data.js just written — are the half of
+      # the suite a bad month is most likely to trip.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno test --allow-read tests/
+
       - name: commit & push
         run: |
           git config user.name "github-actions[bot]"
