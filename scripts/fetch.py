@@ -12,10 +12,15 @@ once is what a fresh clone needs before aggregation and the site work.
 
 What is stored, and why not simply everything: the docs site serves ~87k distinct
 URLs a month across 15 languages and a dozen versions. Keeping that per-page for
-every month would put ~85 MB of mostly-noise in git. So per-page detail is stored
-for English only (the source of truth for editorial decisions), and the other
-languages are rolled up per path — enough to show that a page carries weight in
-translation without shipping fifteen parallel tables.
+every *month* would put ~85 MB of mostly-noise in git. So thirteen months of
+per-page detail are stored for English only — the source of truth for editorial
+decisions — and the other languages are stored per (path, language) for the one
+newest month, which is what the translation view reads.
+
+The versions are what get rolled up rather than the languages. A language is a
+different readership with its own coverage and its own priorities, and summing
+them was what stopped the report saying anything a translator could act on; a
+pinned release is the same readership on an older copy of the same page.
 """
 
 import argparse
@@ -101,12 +106,12 @@ def fetch_docs_month(client, month, full):
         print("", file=sys.stderr)
 
     english = []
-    # Two counters per path, not one. Collapsing every version onto the page it
-    # mirrors is right for the path and wrong for the total: the English figure
-    # a translation count gets compared against is /en/stable/ alone, so a
-    # numerator that also carried /ja/4.5/ and /ja/3.6/ overstated every
-    # translation share. `c` is the like-for-like number the report divides by;
-    # `pv` keeps every version, which is worth knowing on its own.
+    # Two counters per (path, language), not one. Collapsing every version onto
+    # the page it mirrors is right for the path and wrong for the total: the
+    # English figure a translation count gets compared against is /en/stable/
+    # alone, so a numerator that also carried /ja/4.5/ and /ja/3.6/ overstated
+    # every translation share. `c` is the like-for-like number the report
+    # divides by; `pv` keeps every version, which is worth knowing on its own.
     i18n_all, i18n_current = collections.Counter(), collections.Counter()
     for row in rows:
         path, pv = row["dimensions"][0], row["metrics"][0]
@@ -117,19 +122,22 @@ def fetch_docs_month(client, month, full):
             continue
         m = DOCS_PATH.match(path)
         if m and m.group(1) != "en":
-            i18n_all[m.group(3)] += pv
+            i18n_all[(m.group(3), m.group(1))] += pv
             if not PINNED_VERSION.match(m.group(2)):
-                i18n_current[m.group(3)] += pv
+                i18n_current[(m.group(3), m.group(1))] += pv
 
     store.write("docs-en", english, month=month)
     print(f"  docs-en {month}: {len(english):,} pages, "
           f"{sum(r['pv'] for r in english):,} pageviews")
     if full:
         store.write("docs-i18n",
-                    [{"p": p, "pv": pv, "c": i18n_current[p]}
-                     for p, pv in i18n_all.items()], month=month)
+                    [{"p": p, "l": lang, "pv": pv, "c": i18n_current[(p, lang)]}
+                     for (p, lang), pv in i18n_all.items()],
+                    month=month, key=("p", "l"))
         current = sum(i18n_current.values())
-        print(f"  docs-i18n {month}: {len(i18n_all):,} paths, "
+        langs = {lang for _, lang in i18n_all}
+        print(f"  docs-i18n {month}: {len(i18n_all):,} path/language pairs across "
+              f"{len(langs)} languages, "
               f"{current:,} pageviews on the current docs, "
               f"{sum(i18n_all.values()) - current:,} on pinned releases")
 

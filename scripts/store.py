@@ -18,11 +18,19 @@ def path_for(kind, month=None):
 
 
 def write(kind, rows, month=None, key="p"):
+    """`key` is the field to sort on, or a tuple of fields for a compound one.
+
+    A compound key is what keeps byte stability once a kind stores more than one
+    row per path: the translation roll-up is keyed by (path, language), and
+    sorting on the path alone would leave rows that tie ordered by whatever the
+    API happened to return, so an unchanged month would still produce a diff.
+    """
+    fields = (key,) if isinstance(key, str) else tuple(key)
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     target = path_for(kind, month)
     tmp = target.with_suffix(".ndjson.tmp")
     with tmp.open("w") as f:
-        for row in sorted(rows, key=lambda r: str(r[key])):
+        for row in sorted(rows, key=lambda r: tuple(str(r[f]) for f in fields)):
             f.write(json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n")
     tmp.replace(target)
     return target

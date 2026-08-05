@@ -92,14 +92,17 @@ nothing sensitive ever entered history.
   metrics and dimensions exist, so a server upgrade that adds `scroll_depth`
   gets noticed rather than silently changing results.
 - `scripts/fetch.py` — writes `data/raw/`, one byte-stable ndjson file per kind
-  and month. The docs site serves ~87k distinct URLs a month across 15 languages
-  and a dozen versions; keeping that per-page for every month would be ~85 MB of
-  mostly noise. So per-page detail is English-only, and other languages are
-  rolled up per path — enough to show that a page carries weight in translation
-  without shipping fifteen parallel tables. Two counts per path, not one: the
-  current docs and every version, because a share needs the first and the
-  breadth of translated reading needs the second. Only the newest month pages the full
-  hostname (nine requests); older months fetch the English subset in one.
+  and month. The docs site serves ~87k distinct URLs a month across 46 language
+  codes and a dozen versions; keeping that per-page for every month would be
+  ~85 MB of mostly noise. So thirteen months of per-page detail are English-only,
+  and the other languages are stored per (path, language) for the newest month
+  alone, at 2.2 MB — the versions get rolled up, not the languages, because a
+  language is a different readership with its own coverage and priorities where
+  a pinned release is the same readership on an older copy. Two counts per pair,
+  not one: the current docs and every version, because a share needs the first
+  and the breadth of translated reading needs the second. Only the newest month
+  pages the full hostname (nine requests); older months fetch the English subset
+  in one.
 
   Three kinds go unread by the report: `www` (pages on `godotengine.org`),
   `outbound` (clicks leaving the site, which is where download links show up)
@@ -182,7 +185,7 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   handled elsewhere.
 - **translation reads** — pageviews for the same path summed across all
   non-English languages, so a page's weight in translation shows up next to its
-  English figure. 34% of reading on the current docs is non-English.
+  English figure. 35% of reading on the current docs is non-English.
 
   The table shows the count and the **share** — translated reading as a multiple
   of the same page's English figure. The share exists because the raw count
@@ -216,9 +219,20 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   edition is `4.x`, carrying 87% of translated reading against 1,552 views for
   `stable`, and `/xx/latest/` is scanner noise outside one language. So
   `fetch.py` decides by exclusion — a pinned release is spelled as a number —
-  and stores two counts per path: `c` for the current docs, which every share
-  divides by, and `pv` for every version. It matters by a sixth: 130,039 of
-  851,950 translated pageviews are on pinned releases.
+  and stores two counts per pair: `c` for the current docs, which every share
+  divides by, and `pv` for every version. It matters by a sixth: 130,121 of
+  851,931 translated pageviews are on pinned releases.
+
+  *Which language.* 46 codes appear in the URLs and 13 have translations behind
+  them. `fi` is the odd one — 1,618 pageviews across 670 paths with no
+  `sphinx/po/fi` in the l10n repository — and everything below it is typo noise:
+  `jp`, `kr`, `cn`, `ua`, `zn` and a dozen more, single digits over a handful of
+  paths each. Nothing filters them at fetch time, because a list of real
+  languages would go stale the moment one is added, and they cost nothing: the
+  noise is ~100 rows of 31,426. They drop out on their own wherever coverage is
+  joined, having no translation files to join to. Note the codes are spelled as
+  the URL spells them, `zh-cn` and `pt-br`, where the l10n repository spells the
+  same languages `zh_CN` and `pt_BR`.
 
   *Which path.* Translation paths are keyed on the remainder after
   `/<lang>/<version>/`, which is *empty* for the manual's landing page — the

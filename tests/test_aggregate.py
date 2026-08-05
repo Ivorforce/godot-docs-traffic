@@ -15,6 +15,7 @@ them still holds — so the pipeline would notice if the instance were fixed.
 import datetime
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -25,6 +26,7 @@ import aggregate  # noqa: E402
 import fetch  # noqa: E402
 import inventory  # noqa: E402
 import plausible  # noqa: E402
+import store  # noqa: E402
 
 
 class TestCanonical(unittest.TestCase):
@@ -65,31 +67,98 @@ class TestI18nKeys(unittest.TestCase):
         finally:
             aggregate.store.read = original
 
+    def by_lang(self, rows, field="c"):
+        original = aggregate.store.read
+        aggregate.store.read = lambda kind, month: rows
+        try:
+            return {k: dict(v) for k, v in
+                    aggregate.load_i18n_by_lang("2026-07", field).items()}
+        finally:
+            aggregate.store.read = original
+
     def test_landing_page_folds_onto_index(self):
-        out = self.fold([{"p": "", "pv": 40, "c": 30},
-                         {"p": "index.html", "pv": 5, "c": 5}])
+        out = self.fold([{"p": "", "l": "ja", "pv": 40, "c": 30},
+                         {"p": "index.html", "l": "ja", "pv": 5, "c": 5}])
         self.assertEqual(out, {"index.html": 35})
 
     def test_directory_folds_onto_index(self):
-        out = self.fold([{"p": "tutorials/2d/", "pv": 7, "c": 7},
-                         {"p": "tutorials/2d/index.html", "pv": 3, "c": 3}])
+        out = self.fold([{"p": "tutorials/2d/", "l": "de", "pv": 7, "c": 7},
+                         {"p": "tutorials/2d/index.html", "l": "de",
+                          "pv": 3, "c": 3}])
         self.assertEqual(out, {"tutorials/2d/index.html": 10})
 
     def test_ordinary_page_is_untouched(self):
-        out = self.fold([{"p": "about/faq.html", "pv": 9, "c": 9}])
+        out = self.fold([{"p": "about/faq.html", "l": "fr", "pv": 9, "c": 9}])
         self.assertEqual(out, {"about/faq.html": 9})
 
     def test_shares_count_the_current_docs_not_every_version(self):
         """The default field is the one comparable with /en/stable/."""
-        rows = [{"p": "about/faq.html", "pv": 100, "c": 60}]
+        rows = [{"p": "about/faq.html", "l": "de", "pv": 100, "c": 60}]
         self.assertEqual(self.fold(rows), {"about/faq.html": 60})
         self.assertEqual(self.fold(rows, "pv"), {"about/faq.html": 100})
 
-    def test_a_rollup_without_the_split_stops_the_run(self):
+    def test_languages_sum_for_the_english_report(self):
+        """The English page wants one number per page, not fifteen."""
+        out = self.fold([{"p": "about/faq.html", "l": "de", "pv": 9, "c": 9},
+                         {"p": "about/faq.html", "l": "ja", "pv": 4, "c": 4}])
+        self.assertEqual(out, {"about/faq.html": 13})
+
+    def test_languages_stay_apart_for_the_translation_view(self):
+        out = self.by_lang([{"p": "about/faq.html", "l": "de", "pv": 9, "c": 9},
+                            {"p": "about/faq.html", "l": "ja", "pv": 4, "c": 4},
+                            {"p": "", "l": "ja", "pv": 6, "c": 6}])
+        self.assertEqual(out, {"de": {"about/faq.html": 9},
+                               "ja": {"about/faq.html": 4, "index.html": 6}})
+
+    def test_the_same_folding_applies_per_language(self):
+        """A landing page must key as index.html on both paths through the data,
+        or the two views would disagree about the largest key in the file."""
+        rows = [{"p": "", "l": "ja", "pv": 6, "c": 6}]
+        self.assertEqual(self.fold(rows), {"index.html": 6})
+        self.assertEqual(self.by_lang(rows), {"ja": {"index.html": 6}})
+
+    def test_a_rollup_without_the_version_split_stops_the_run(self):
         """Old files sum every version into one number and cannot be repaired
         after the fact, so they must fail loudly rather than read as a share."""
         with self.assertRaises(SystemExit):
-            self.fold([{"p": "about/faq.html", "pv": 9}])
+            self.fold([{"p": "about/faq.html", "l": "de", "pv": 9}])
+
+    def test_a_rollup_without_the_language_split_stops_the_run(self):
+        """Same reasoning one axis over: a file that summed the languages cannot
+        be split back into them."""
+        with self.assertRaises(SystemExit):
+            self.by_lang([{"p": "about/faq.html", "pv": 9, "c": 9}])
+
+
+class TestStoreOrdering(unittest.TestCase):
+    """Re-running a fetch on unchanged data must produce identical bytes.
+
+    Once a kind stores more than one row per path, sorting on the path alone
+    leaves the ties ordered by whatever the API returned, and an unchanged month
+    still shows up as a diff.
+    """
+
+    def written(self, rows, **kw):
+        original = store.RAW_DIR
+        with tempfile.TemporaryDirectory() as tmp:
+            store.RAW_DIR = Path(tmp)
+            try:
+                return store.write("k", rows, **kw).read_text()
+            finally:
+                store.RAW_DIR = original
+
+    def test_compound_key_breaks_ties_deterministically(self):
+        rows = [{"p": "a.html", "l": "ja", "pv": 1},
+                {"p": "a.html", "l": "de", "pv": 2}]
+        out = self.written(rows, key=("p", "l"))
+        self.assertEqual(out, self.written(list(reversed(rows)), key=("p", "l")))
+        self.assertEqual([json.loads(l)["l"] for l in out.splitlines()],
+                         ["de", "ja"])
+
+    def test_a_single_key_is_still_accepted(self):
+        out = self.written([{"p": "b.html"}, {"p": "a.html"}])
+        self.assertEqual([json.loads(l)["p"] for l in out.splitlines()],
+                         ["a.html", "b.html"])
 
 
 class TestCurrentEdition(unittest.TestCase):

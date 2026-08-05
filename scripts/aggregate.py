@@ -108,32 +108,55 @@ def load_docs_month(month):
     return out
 
 
-def load_i18n(month, field="c"):
-    """{path below /<lang>/<version>/: pageviews} summed over all non-English
-    languages, so a page can show how much it is read in translation.
+def i18n_key(rest):
+    """Fold a translated path onto the key `build_docs` derives from a canonical
+    English URL, which is `index.html` for the manual's landing page.
+
+    A reader at `/ja/stable/` leaves an *empty* remainder, not one ending in
+    "/", so the directory rule alone misses it — and that one path is the
+    largest single key in the file (4% of all translated reading).
+    """
+    if not rest or rest.endswith("/"):
+        rest += "index.html"
+    return rest
+
+
+def read_i18n(month, field="c"):
+    """Yield (key, language, pageviews) for the translation roll-up.
 
     `field` picks the edition: "c" is the current docs in each language, the
     only figure comparable with the English side, which is `/en/stable/` alone.
     "pv" is every version, which is not a translation share but is a real number
     about how translated reading is spread.
-
-    Keys must land on the same form `build_docs` derives from a canonical
-    English URL, which is `index.html` for the manual's landing page. A reader
-    at `/ja/stable/` leaves an *empty* remainder, not one ending in "/", so the
-    directory rule alone misses it — and that one path is the largest single key
-    in the file (4% of all translated reading).
     """
-    out = collections.Counter()
     for row in store.read("docs-i18n", month):
-        if field not in row:
+        if field not in row or "l" not in row:
             sys.exit(f"data/raw/docs-i18n-{month}.ndjson predates the per-version "
-                     f"split and cannot be corrected after the fact — every "
-                     f"version is already summed into one number. Re-run "
-                     f"`python3 scripts/fetch.py incremental`.")
-        rest = row["p"]
-        if not rest or rest.endswith("/"):
-            rest += "index.html"
-        out[rest] += row[field]
+                     f"and per-language split, and neither can be recovered after "
+                     f"the fact — the file has already summed them into one "
+                     f"number. Re-run `python3 scripts/fetch.py incremental`.")
+        yield i18n_key(row["p"]), row["l"], row[field]
+
+
+def load_i18n(month, field="c"):
+    """{path: pageviews} summed over all non-English languages, so a page can
+    show how much it is read in translation."""
+    out = collections.Counter()
+    for key, _lang, pv in read_i18n(month, field):
+        out[key] += pv
+    return out
+
+
+def load_i18n_by_lang(month, field="c"):
+    """{language: {path: pageviews}}, which is what the translation view needs.
+
+    Summing the languages is right for the English report — one number saying a
+    page carries weight in translation — and wrong for a translator, whose
+    priorities are their own language's and not the sum of fifteen.
+    """
+    out = collections.defaultdict(collections.Counter)
+    for key, lang, pv in read_i18n(month, field):
+        out[lang][key] += pv
     return out
 
 
