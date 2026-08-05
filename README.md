@@ -548,7 +548,18 @@ produced independently of the API path.
 
 ### Verifying the page
 
-**The tests do not cover `docs/app.js`.** Everything above runs against the
+One part of `docs/app.js` is covered: `deno test --allow-read tests/` runs the
+churn grid's renderer against the data the page ships, on a DOM stub small
+enough to read. It exists because the grid states its case in the cell shading,
+and shading is set through a style string — an alpha of `NaN` is not an error in
+a browser, so the declaration is dropped, every cell goes white, and the page
+carries on. That is what happened when a refactor took the `top` declaration out
+along with the comment above it and the name resolved to `window.top`: no
+console output, nothing for `deno check` to see. Free names in the stub resolve
+against Deno's globals rather than a browser's, which is the stricter half of
+what the file is for.
+
+**The rest of the page is not covered.** Everything else above runs against the
 Python payload, and the payload has been right every time the page was wrong.
 The chart bug that made the section chart's reading bars sum to 89.6% instead of
 100% lived entirely in JavaScript grouping logic and no test could see it.
