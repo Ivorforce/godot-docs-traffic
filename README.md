@@ -108,6 +108,11 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
 - **page** — a URL that resolves to a `.rst` file in godot-docs at the recorded
   commit. Directory URLs and `index.html` are folded onto one canonical form, or
   a page's traffic would split across two rows and each would look half as read.
+  Only `/en/stable/` counts, so the pinned releases and `/en/latest/` are
+  excluded — 336,181 of 1,717,257 English pageviews, a fifth, and the larger of
+  the two editions exclusions this report makes. Both are named in the tile whose
+  figure they are missing from, this one in **pageviews** and the translated one
+  in **read in translation**, rather than described in a caveat nobody can check.
   URLs with no source file (~2% of pageviews: removed pages, Sphinx's search
   page, scanner noise) are excluded from every figure and listed separately, so
   the exclusion is visible rather than silent. `404.rst` is dropped too, being the
@@ -255,8 +260,8 @@ which is what the grid is for.
 The grid measures activity, not quality and not need. A page nobody has touched
 reads identically whether it is finished or forgotten. Its window also ends at
 the docs commit rather than at the end of the traffic window, and reaches back
-two years where traffic reaches back thirteen months, so the older half of the
-grid has no traffic figure beside it at all.
+two years where every traffic figure in the report is one month, so no column of
+the grid has a traffic figure beside it at all.
 
 ## What was tried and cut
 

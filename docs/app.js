@@ -516,7 +516,12 @@ function renderStats() {
   }
   const quiet = rows.filter((r) => r[PV] < 100).length;
   const stats = [
-    ["pageviews", num(total), corpus().tile],
+    // Both editions exclusions ride on the tile whose figure they are missing
+    // from: this page counts /en/stable/ and each language's current docs, and
+    // the English side leaves out the larger of the two.
+    ["pageviews", num(total),
+     `${corpus().tile} · ${num(DOCS.enOtherVersions)} on the /en/ editions ` +
+     `this excludes`],
     ["pages", num(rows.length), corpus().pages],
     ["carry half the reading", num(half), `${pct(half, rows.length)} of pages`],
     ["under 100 views", num(quiet), `${pct(quiet, rows.length)} of pages`],

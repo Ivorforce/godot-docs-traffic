@@ -108,6 +108,19 @@ def load_docs_month(month):
     return out
 
 
+def load_en_other(month):
+    """Pageviews on English docs outside `/en/stable/` in one month.
+
+    The stable-only rule that keeps the English and translated sides comparable
+    also drops the pinned releases and `/en/latest/`, and that is the larger of
+    the two exclusions it makes. Emitted for the same reason as
+    `i18nOtherVersions`: so the page can name what it leaves out rather than
+    describe it.
+    """
+    return sum(row["pv"] for row in store.read("docs-en", month)
+               if not row["p"].startswith(URL_PREFIX))
+
+
 def i18n_key(rest):
     """Fold a translated path onto the key `build_docs` derives from a canonical
     English URL, which is `index.html` for the manual's landing page.
@@ -373,6 +386,11 @@ def build_docs(months, inventory):
         "redirectCount": len(redirects),
         "windowStart": window_start,
         "matchedViews": sum(matched.values()),
+        # English reading outside /en/stable/ — the pinned releases and
+        # /en/latest/. Excluded from every figure on the page, and the larger
+        # of the two editions exclusions, so it is a number in a tile rather
+        # than a sentence about a number nobody can see.
+        "enOtherVersions": load_en_other(newest),
         "i18nViews": sum(i18n.values()),
         # Translated reading outside /xx/stable/: excluded from every share on
         # the page, since the English side it is compared against is stable

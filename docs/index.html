@@ -288,10 +288,10 @@ the same as the charts above, so drilling into a section replaces them with what
 is inside it. Empty cells are the reason it is here: a part of the docs untouched
 for a quarter is the one thing the pull request feed does not show.</p>
 <p class="caption">The <strong>shading</strong> is those lines against how long
-the row is now, so it says something the figures do not. In the first half of
-2023 <code>getting_started/</code> changed 3,531 lines against
-<code>tutorials/</code>'s 24,229 and was the harder worked of the two, turning
-over 45% of its own length where tutorials turned over 23%. The darkest cell is
+the row is now, so it says something the figures do not. In Q4 '25
+<code>engine_details/</code> changed 1,353 lines against
+<code>tutorials/</code>'s 5,501 and was the harder worked of the two, turning
+over 9% of its own length where tutorials turned over 5%. The darkest cell is
 the most intensively changed one <em>currently shown</em>, not a fixed mark, so
 the colours redraw when you change section; the numbers do not.</p>
 <p class="caption">Columns are calendar quarters, so a closed one never changes
@@ -404,8 +404,9 @@ docs commit shown at the top of the page.</p>
         what to work on next.</li>
     <li>The churn window ends at the docs commit shown above, not at the end of
         the traffic window, so the newest churn column is a part-period and the
-        two spans should not be compared period for period. Churn also reaches
-        back two years where traffic reaches back thirteen months.</li>
+        two spans should not be compared period for period. Churn reaches back
+        two years; every traffic figure here is the single month named at the
+        top, so no column of the grid has one beside it.</li>
     <li>The class reference is generated from the engine's source and synced in
         bulk, so its git dates record sync commits rather than anyone writing.
         For that reason the report opens on the manual without it; the path
@@ -413,9 +414,9 @@ docs commit shown at the top of the page.</p>
         them alone.</li>
     <li>Only English <code>/en/stable/</code> pages are counted in detail.
         Translated reading is summed across all other languages per page. Both
-        sides count the current docs only — pinned releases like
-        <code>/en/4.7/</code> and <code>/ja/4.5/</code> are excluded, a sixth of
-        translated reading, named in the tile above.</li>
+        sides count the current docs only, so the pinned releases and
+        <code>/en/latest/</code> are excluded — a fifth of English reading and a
+        sixth of translated reading, each named in its own tile above.</li>
   </ul>
   <p>Aggregated from Godot's self-hosted Plausible instance. Scripts, metric
      definitions and raw data live in the repository; the page reads a single
