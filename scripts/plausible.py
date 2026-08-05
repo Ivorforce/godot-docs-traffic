@@ -36,7 +36,7 @@ WWW_HOST = "godotengine.org"
 
 # Per-visitor and per-session figures from this instance are not usable — unique
 # visitors, visits, bounce rate and session duration all collapsed on 2025-10-01
-# and have not recovered (see the README). Pageviews are unaffected, and are the
+# and have not recovered (see METHOD.md). Pageviews are unaffected, and are the
 # only traffic metric this pipeline reports.
 VISITOR_METRICS_UNRELIABLE_FROM = "2025-10-01"
 

@@ -6,7 +6,7 @@ from: an independently produced file for the same window, so if the API path and
 the export disagree about a page, one of them is wrong.
 
 `data/raw/site-daily.ndjson` also carries visitor counts, and
-`TestVisitorMetricsStillUnreliable` checks that the README's reason for ignoring
+`TestVisitorMetricsStillUnreliable` checks that METHOD.md's reason for ignoring
 them still holds — so the pipeline would notice if the instance were fixed.
 
     python3 -m unittest discover tests
@@ -468,7 +468,7 @@ SITE_DAILY = ROOT / "data" / "raw" / "site-daily.ndjson"
 
 @unittest.skipUnless(SITE_DAILY.exists(), "run scripts/fetch.py first")
 class TestVisitorMetricsStillUnreliable(unittest.TestCase):
-    """The README justifies using pageviews only by showing that per-visitor
+    """METHOD.md justifies using pageviews only by showing that per-visitor
     figures collapsed on 2025-10-01 and stayed collapsed. If that ever stops
     being true — the instance is fixed, or the diagnosis was wrong — this fails,
     and the report should reconsider what it can use."""
@@ -504,7 +504,7 @@ class TestVisitorMetricsStillUnreliable(unittest.TestCase):
         self.assertGreater(
             worst, 20,
             "per-visitor figures now look plausible again — if the instance was "
-            "fixed, revisit the README and consider using visitor metrics")
+            "fixed, revisit METHOD.md and consider using visitor metrics")
 
 
 EXPORT = Path("/Users/lukas/dev/research/"
@@ -582,7 +582,7 @@ class TestGeneratedPayload(unittest.TestCase):
 
     def test_no_identity_metric_reaches_the_page(self):
         """Per-visitor and per-session figures are unreliable on this instance
-        (see README). The page says everything on it is pageviews; no field
+        (see METHOD.md). The page says everything on it is pageviews; no field
         derived from identity may reach it, in any section.
 
         Checked against field names, not the serialised blob: page paths are

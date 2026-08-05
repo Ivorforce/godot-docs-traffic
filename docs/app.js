@@ -5,7 +5,7 @@
    mode) mirrors into location.hash.
 
    Pageviews are the only traffic metric anywhere in this file. Per-visitor and
-   per-session figures are not reliable on this analytics setup (see the README)
+   per-session figures are not reliable on this analytics setup (see METHOD.md)
    and never reach the page. */
 
 "use strict";
@@ -576,7 +576,7 @@ function buildFunnel() {
 }
 
 /* English reading by edition, month by month, stacked. The one figure here
-   drawn from more than one month (see README, "Which edition people read").
+   drawn from more than one month (see METHOD.md, "Which edition people read").
    Counts rather than shares: the flat total is half of what the chart says, and
    a 100% stack would hide it by construction. */
 function buildEditions() {
@@ -591,7 +591,7 @@ function buildEditions() {
          stacked area does, while every month stays a closed block. An area
          would put its vertices at month centres and interpolate a third of a
          year between two of them; at 36 points or so that stops mattering and
-         this should become one (see README). */
+         this should become one (see METHOD.md). */
       datasets: { bar: { barPercentage: 1, categoryPercentage: 1 } },
       scales: {
         x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
@@ -1041,7 +1041,7 @@ function monthLabel(month) {
 const EDITION_MONTHS = 24;
 
 /* Months rather than quarters, unlike the churn grid, for two reasons the
-   README sets out in figures: a quarter averages the two-month handover into a
+   METHOD.md sets out in figures: a quarter averages the two-month handover into a
    single edge, and a stacked count drawn from a part-period is short rather
    than partial, which reads as traffic collapsing. */
 function editionWindow() {
@@ -1134,7 +1134,7 @@ function renderEditionsNote(win) {
    would cost work. Its extremes are small denominators — the twenty highest
    shares have a median of 73 pageviews against 609 across the table, and no
    page above 3,000 pageviews reaches 1× at all. Coverage itself is the
-   measure those readings wanted, and it is not in this payload; see the README.
+   measure those readings wanted, and it is not in this payload; see NOTES.md.
 
    Last edit was cut for the reason it had already been cut from the scatter's
    colouring: it cannot be read in either direction. An old date is a page that

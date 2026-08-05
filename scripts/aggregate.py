@@ -11,7 +11,7 @@ refetching anything.
 Two rules run through the whole file:
 
   * Pageviews only. Per-visitor and per-session figures are not reliable on this
-    analytics setup (see the README) and are never emitted.
+    analytics setup (see METHOD.md) and are never emitted.
   * A docs URL counts as a page only if it resolves to a source file in
     godot-docs. The rest — stale paths, Sphinx's search page, scanner noise — is
     counted and reported, not silently dropped.
@@ -630,7 +630,7 @@ def day_anomalies(days, ratio=ANOMALY_DAY_RATIO, window=ANOMALY_DAY_WINDOW):
 def docs_days():
     """[(date, pageviews)] for docs.godotengine.org, oldest first.
 
-    From `site-daily.ndjson`, which `fetch.py` stores for the README's table
+    From `site-daily.ndjson`, which `fetch.py` stores for METHOD.md's table
     about visitor identity. Its pageview column is otherwise unused.
     """
     per_day = collections.Counter()

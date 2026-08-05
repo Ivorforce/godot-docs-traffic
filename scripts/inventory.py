@@ -15,7 +15,7 @@ can never answer, and both matter here:
 
 The tree also supplies the only usable page-quality signals on this instance:
 length and staleness. Plausible here has no scroll_depth and no time_on_page,
-and its session metrics are broken (see README), so "is this page working?"
+and its session metrics are broken (see METHOD.md), so "is this page working?"
 cannot come from traffic data at all.
 
 Output: data/inventory.json. Requires git; clones into .cache/ (gitignored).

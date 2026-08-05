@@ -22,7 +22,7 @@ weight in translation without shipping fifteen parallel tables.
 the rows are already being paged for the English side — but nothing on the page
 reads it, so it is off. It exists because the report cannot answer a per-language
 question without it and no downstream work recovers a dimension discarded here;
-see the translation section of the README for what was asked of it and why the
+see the translation section of NOTES.md for what was asked of it and why the
 answer did not warrant a page.
 """
 
@@ -63,7 +63,7 @@ def fetch_site_daily(client, first, last):
     """Daily site totals per hostname.
 
     Visitor counts are stored alongside pageviews here and nowhere else. Nothing
-    on the page uses them; they are kept so the README's claim that per-visitor
+    on the page uses them; they are kept so METHOD.md's claim that per-visitor
     figures are unusable stays checkable against stored data rather than being
     something a reader has to take on trust.
     """
@@ -183,7 +183,7 @@ def fetch_outbound_month(client, month):
 
 def fetch_os_month(client, month):
     """OS mix by pageviews, not visitors — visitor counts are broken after
-    2025-10-01 (see README), pageviews are not."""
+    2025-10-01 (see METHOD.md), pageviews are not."""
     date_range = plausible.month_range(month)
     rows = list(client.paginate(
         metrics=["pageviews"], date_range=date_range, dimensions=["visit:os"],
