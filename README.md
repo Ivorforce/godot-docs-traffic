@@ -270,6 +270,39 @@ the docs commit rather than at the end of the traffic window, and reaches back
 two years where every traffic figure in the report is one month, so no column of
 the grid has a traffic figure beside it at all.
 
+### Which edition people read
+
+The one chart drawn from more than one month, and the one place the fifth of
+English reading outside `/en/stable/` is a shape rather than a number.
+
+**The total barely moves**: 1.63M–1.90M pageviews across the thirteen stored
+months, ±8%, no trend, no seasonality, and the fifty most-read pages of any
+month overlap July's fifty by 44 to 50. That is what makes a one-month snapshot
+honest, and why the chart is counts rather than a 100% stack — normalising the
+flat sum away would leave only the composition.
+
+**The shape to read is the handover.** `/en/4.4/` held 28% of English reading in
+August 2025, while it was current, and 3% by November: a superseded release's
+tail runs about two months, which is the figure behind backporting a fix to it.
+The reverse holds before a release — `/en/4.7/` reached 144k pageviews a month
+while still in development. Looping pageviews are excluded here and nowhere
+else: one looping URL fired 7.2M of them in April 2026, four times the site's
+ordinary month, which drawn to scale leaves the other twelve columns a smear.
+
+**Months, not quarters.** `/en/4.4/` ran 18%, 28%, 29%, 13%, 5% across five
+months, which in calendar quarters is 25%, 8%, 5% — the peak averaged away, the
+collapse reduced to one edge. Two runs in three would also end on a part-period,
+and where the churn grid marks one with a `*` because it shades a rate, a stacked
+count drawn from one month of three is a third as tall and reads as traffic
+collapsing. The chart draws the newest 24 months and says so.
+
+**Bars that touch, rather than a stacked area.** The bands read as layers across
+time either way, but a bar keeps each month a closed count, where an area puts
+its vertices at month centres and interpolates a third of a year between two of
+them. [godot-area-throughput](https://github.com/Ivorforce/godot-area-throughput)
+draws its sediment over three years of months, and past 36 points or so the
+interpolation stops mattering — at which point this should become one too.
+
 ## Checks
 
 `aggregate.py` runs two integrity checks on every build. Both print warnings and

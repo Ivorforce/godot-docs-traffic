@@ -353,7 +353,7 @@ the docs present them, each page measured against its own tutorial's landing
 page. Order and grouping come from the table of contents, so a restructure moves
 this chart instead of breaking it. Hover a point for the page and the count
 behind its percentage. The guide is a third of all pageviews in the hand-written
-manual. This section and the next are fixed — the path bar does not reach
+manual. This section and the two after it are fixed — the path bar does not reach
 them.</p>
 <p class="caption" id="funnel-note"></p>
 <p class="caption">The percentages are <em>not</em> conversion, and the landing
@@ -362,6 +362,22 @@ and leave whenever they have what they came for, so a step above 100% means
 people entered there. The trend across a tutorial is the reliable part; the gap
 between two neighbouring points is not, since a few hundred pageviews either way
 is a visible part of the line.</p>
+
+<h2>Which edition people read</h2>
+<div class="chart-box"><canvas id="chart-editions"></canvas></div>
+<p class="caption" id="editions-note"></p>
+<p class="caption">English pageviews by edition, month by month — everything
+else on this page is <code>/en/stable/</code> in the newest month alone. Counts
+rather than shares, because the flat total is half of what it says. The shape to
+read is the handover: how long a release is still read after it is superseded is
+what decides whether a documentation fix is worth backporting to it.
+<code>/en/latest/</code> is the same docs built ahead of the release, so it sits
+with the current ones.</p>
+<p class="caption">Months rather than quarters, unlike the grid above: a
+handover takes about two months, which a quarter averages into a single edge.
+Pageviews spent in a redirect loop are left out here alone — one such URL fired
+7.2 million of them in a single month — and are counted in full at the foot of
+this page.</p>
 
 <h2>Removed pages with no redirect</h2>
 <table id="stale-table">

@@ -690,6 +690,32 @@ class TestGeneratedPayload(unittest.TestCase):
         self.assertGreater(self.docs["redirectCount"], 100)
         self.assertGreater(self.docs["staleKinds"].get("forwarded", 0), 0)
 
+    def test_edition_series_cover_every_month(self):
+        """The stack is drawn against the shared month labels by index, so a
+        short series would silently shift a release's history."""
+        for entry in self.docs["editions"]:
+            self.assertEqual(len(entry["views"]), len(self.payload["months"]),
+                             entry["edition"])
+
+    def test_the_current_docs_lead_the_stack(self):
+        """Reading order, not size order: the stack is meant to read like the
+        release history."""
+        self.assertEqual(self.docs["editions"][0]["edition"], "stable")
+
+    def test_the_remainder_is_last_if_it_is_there(self):
+        editions = [e["edition"] for e in self.docs["editions"]]
+        if "other" in editions:
+            self.assertEqual(editions[-1], "other")
+
+    def test_no_edition_month_carries_a_loop(self):
+        """The chart excludes looping pageviews, and April 2026 is why: one URL
+        fired 7.2M of them, four times the site's ordinary month. If the
+        exclusion ever stops working, the largest month is many times the
+        smallest instead of within a fifth of it."""
+        totals = [sum(e["views"][i] for e in self.docs["editions"])
+                  for i in range(len(self.payload["months"]))]
+        self.assertLess(max(totals), 1.5 * min(totals))
+
     def test_window_start_matches_the_reported_period(self):
         """app.js marks a removal as "during" by comparing against it, so a
         wrong windowStart silently reclassifies every row."""
@@ -861,6 +887,87 @@ class TestRedirectWalk(unittest.TestCase):
         self.assertEqual([url for url, _ in hits],
                          ["/en/stable/engine_details/development/"
                           "file_formats/index.html"])
+
+
+class TestEditions(unittest.TestCase):
+    """The one chart drawn from more than one month.
+
+    Everything else on the page is `/en/stable/` in the newest month; this is
+    where the other fifth of English reading is, and where a release's tail
+    after it stops being current can be measured.
+    """
+
+    PAGES = {"/en/stable/tutorials/2d/index.html": {}}
+    RULES = {"/development/file_formats/index.html":
+             "/engine_details/development/file_formats/index.html"}
+
+    def build(self, rows_by_month, **kw):
+        original = aggregate.store.read
+        aggregate.store.read = lambda kind, month: rows_by_month[month]
+        try:
+            return aggregate.build_editions(sorted(rows_by_month), self.RULES,
+                                            self.PAGES, **kw)
+        finally:
+            aggregate.store.read = original
+
+    def test_editions_are_split_and_months_kept_in_order(self):
+        out = self.build({
+            "2026-06": [{"p": "/en/stable/tutorials/2d/index.html", "pv": 10},
+                        {"p": "/en/4.6/tutorials/2d/index.html", "pv": 4}],
+            "2026-07": [{"p": "/en/stable/tutorials/2d/index.html", "pv": 12}],
+        })
+        self.assertEqual(out, [{"edition": "stable", "views": [10, 12]},
+                               {"edition": "4.6", "views": [4, 0]}])
+
+    def test_looping_pageviews_are_left_out(self):
+        """One looping URL fired 7.2M pageviews in April 2026, four times the
+        site's ordinary month. Left in, the chart is that URL and nothing
+        else."""
+        out = self.build({"2026-07": [
+            {"p": "/en/stable/tutorials/2d/index.html", "pv": 10},
+            {"p": "/en/stable/engine_details/development/file_formats/index.html",
+             "pv": 7000000},
+        ]})
+        self.assertEqual(out, [{"edition": "stable", "views": [10]}])
+
+    def test_a_loop_is_excluded_on_every_edition(self):
+        """redirects.csv ships in every build, so the loop is a property of the
+        path rather than of the edition serving it."""
+        out = self.build({"2026-07": [
+            {"p": "/en/4.6/engine_details/development/file_formats/index.html",
+             "pv": 500000},
+            {"p": "/en/4.6/tutorials/2d/index.html", "pv": 7},
+        ]})
+        self.assertEqual(out, [{"edition": "4.6", "views": [7]}])
+
+    def test_the_tail_is_summed_rather_than_dropped(self):
+        """The bars have to stay the whole of English reading, or the flat
+        total the chart is half about stops being checkable."""
+        out = self.build({"2026-07": [
+            {"p": "/en/stable/a.html", "pv": 100},
+            {"p": "/en/3.5/a.html", "pv": 5},
+            {"p": "/en/3.4/a.html", "pv": 3},
+        ]}, keep=1)
+        self.assertEqual(out, [{"edition": "stable", "views": [100]},
+                               {"edition": "other", "views": [8]}])
+
+    def test_a_malformed_path_is_not_an_edition(self):
+        out = self.build({"2026-07": [{"p": "/robots.txt", "pv": 9},
+                                      {"p": "/en/stable/a.html", "pv": 4}]})
+        self.assertEqual(out, [{"edition": "stable", "views": [4]}])
+
+    def test_edition_split_keeps_the_path_below_it(self):
+        self.assertEqual(aggregate.edition_of("/en/stable/tutorials/2d/index.html"),
+                         ("stable", "tutorials/2d/index.html"))
+        self.assertEqual(aggregate.edition_of("/en/4.6/"), ("4.6", ""))
+        self.assertEqual(aggregate.edition_of("/de/stable/a.html")[0], None)
+
+    def test_releases_are_ordered_newest_first_after_the_rolling_ones(self):
+        """Sorted as strings, 4.10 would come before 4.9 and a release would
+        move up the stack as the numbering passed ten."""
+        editions = ["4.9", "latest", "4.10", "stable", "4.4"]
+        self.assertEqual(sorted(editions, key=aggregate.edition_order),
+                         ["stable", "latest", "4.10", "4.9", "4.4"])
 
 
 class TestTrafficAnomalies(unittest.TestCase):

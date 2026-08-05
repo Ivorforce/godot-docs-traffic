@@ -73,6 +73,14 @@ const CHURN_BINS = [
    marker shape as well, which is what keeps the lines apart in print, at a
    glance, and for a reader who cannot use the colours at all. Four is not a
    fixed count — the list wraps if the docs ever add a fifth. */
+/* The editions stack. The current docs take the blue every other pageview
+   figure here is drawn in, `latest` the same family a step lighter. Pinned
+   releases — the editions this report leaves out — are the amber family, newest
+   first, so a release darkens as it ages down the stack. */
+const EDITION_COLORS = { stable: COLORS.views, latest: "#86b6ef",
+                         other: COLORS.muted };
+const EDITION_RAMP = ["#d4a72c", "#b0821c", "#7d4e00", "#4a2f00"];
+
 const FUNNEL_STYLES = [
   { color: "#0d366b", point: "circle" },
   { color: "#2a78d6", point: "triangle" },
@@ -567,6 +575,51 @@ function buildFunnel() {
   });
 }
 
+/* English reading by edition, month by month, stacked. The one figure here
+   drawn from more than one month (see README, "Which edition people read").
+   Counts rather than shares: the flat total is half of what the chart says, and
+   a 100% stack would hide it by construction. */
+function buildEditions() {
+  charts.editions = new Chart(document.getElementById("chart-editions"), {
+    type: "bar",
+    data: { labels: [], datasets: [] },
+    options: Object.assign({}, BASE, {
+      // The whole column, because the question is what a month was made of and
+      // the thin bands on top are the ones worth reading.
+      interaction: { mode: "index", intersect: false },
+      /* Bars that touch, so each band reads as one layer across time the way a
+         stacked area does, while every month stays a closed block. An area
+         would put its vertices at month centres and interpolate a third of a
+         year between two of them; at 36 points or so that stops mattering and
+         this should become one (see README). */
+      datasets: { bar: { barPercentage: 1, categoryPercentage: 1 } },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { stacked: true, beginAtZero: true, grid: { color: COLORS.grid },
+             ticks: { callback: (v) => num(v) } },
+      },
+      plugins: {
+        legend: { labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: {
+          label(item) {
+            const total = item.chart.data.datasets
+              .reduce((a, d) => a + d.data[item.dataIndex], 0);
+            const pv = item.parsed.y;
+            return `${item.dataset.label} — ${num(pv)} (${pct(pv, total)})`;
+          },
+          // The sum the stack draws, given rather than left to be added up: it
+          // is the thing that does not move, which is hard to see in a stack.
+          footer(items) {
+            const total = items[0].chart.data.datasets
+              .reduce((a, d) => a + d.data[items[0].dataIndex], 0);
+            return `${num(total)} pageviews in the month`;
+          },
+        } },
+      },
+    }),
+  });
+}
+
 // ---- rendering --------------------------------------------------------------
 
 function renderStats() {
@@ -974,6 +1027,85 @@ function renderFunnelNote(series) {
       : "") +
     `Landing page, then the share of it that reaches the first step: ` +
     parts.join("; ") + ".";
+}
+
+function monthLabel(month) {
+  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${names[Number(month.slice(5)) - 1]} '${month.slice(2, 4)}`;
+}
+
+/* The newest months the stack draws. The payload holds every month fetched and
+   grows by one a month, so something has to bound the chart; two years is two
+   release cycles. The cut is named in the note rather than left to be noticed. */
+const EDITION_MONTHS = 24;
+
+/* Months rather than quarters, unlike the churn grid, for two reasons the
+   README sets out in figures: a quarter averages the two-month handover into a
+   single edge, and a stacked count drawn from a part-period is short rather
+   than partial, which reads as traffic collapsing. */
+function editionWindow() {
+  const start = Math.max(0, D.months.length - EDITION_MONTHS);
+  return {
+    start,
+    months: D.months.slice(start),
+    series: DOCS.editions.map(
+      (e) => ({ edition: e.edition, views: e.views.slice(start) })),
+  };
+}
+
+function renderEditions() {
+  // Amber is assigned in the order the editions arrive, which aggregate.py
+  // sorts newest release first, so the brightest band is the newest pinned one
+  // and a release keeps its shade as it decays down the stack.
+  const ramp = [...EDITION_RAMP];
+  const win = editionWindow();
+  charts.editions.data.labels = win.months.map(monthLabel);
+  charts.editions.data.datasets = win.series.map((e) => ({
+    label: e.edition === "other" ? "older releases" : "/en/" + e.edition + "/",
+    data: e.views,
+    backgroundColor: EDITION_COLORS[e.edition] || ramp.shift() || COLORS.muted,
+  }));
+  charts.editions.update();
+  renderEditionsNote(win);
+}
+
+/* What the stack is for, in figures, and asserted from the data: a sentence
+   written by hand would go on claiming a handover that has since finished. */
+function renderEditionsNote(win) {
+  const months = win.months;
+  const last = months.length - 1;
+  const totals = months.map((_, i) =>
+    win.series.reduce((a, e) => a + e.views[i], 0));
+  const stable = win.series.find((e) => e.edition === "stable");
+  const pinned = win.series
+    .filter((e) => /^\d/.test(e.edition))
+    .map((e) => {
+      const peak = e.views.indexOf(Math.max(...e.views));
+      return { edition: e.edition, peak, views: e.views };
+    })
+    // The one with the longest history behind its peak is the only one whose
+    // decay has finished inside the window; a release that peaked last month
+    // has a tail nobody can measure yet.
+    .sort((a, b) => a.peak - b.peak)[0];
+  const parts = [];
+  if (stable) {
+    parts.push(
+      `In ${months[last]}, ${pct(stable.views[last], totals[last])} of English ` +
+      `pageviews were on the current docs and the rest on an edition this ` +
+      `report excludes.`);
+  }
+  if (pinned && pinned.peak < last) {
+    parts.push(
+      `/en/${pinned.edition}/ peaked at ${pct(pinned.views[pinned.peak], totals[pinned.peak])} ` +
+      `of the month in ${months[pinned.peak]} and is at ` +
+      `${pct(pinned.views[last], totals[last])} now.`);
+  }
+  if (win.start) {
+    parts.push(`The newest ${months.length} of ${D.months.length} stored ` +
+               `months are drawn.`);
+  }
+  document.getElementById("editions-note").textContent = parts.join(" ");
 }
 
 /* Four columns: how much a page is viewed, what it costs to keep, and how much
@@ -1511,9 +1643,11 @@ function init() {
   buildSections();
   buildScatter();
   buildFunnel();
+  buildEditions();
   bindControls();
   render();
   renderFunnel();
+  renderEditions();
   renderStale();
 }
 

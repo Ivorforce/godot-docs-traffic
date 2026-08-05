@@ -40,6 +40,13 @@ URL_PREFIX = "/en/stable/"
 # but the tail is thousands of scanner hits, so it is cut and the cut reported.
 STALE_LIMIT = 25
 
+# How many editions the trend chart draws before summing the rest into "other".
+# Six covers the current docs, `latest` and the four releases anyone still
+# reads; below that a handover disappears into the remainder, and above it the
+# stack is a band a pixel high per pinned release back to 2.1.
+EDITION_LIMIT = 6
+
+
 def canonical(url):
     """Normalise a trafficked URL to the form the inventory uses.
 
@@ -373,6 +380,81 @@ def build_churn(inventory, index):
             "since": inventory["churnSince"], "series": series}
 
 
+def edition_of(url):
+    """("stable", "tutorials/2d/index.html") — which edition, and the path in it.
+
+    Every English docs URL is `/en/<edition>/<rest>`. The edition is `stable`,
+    `latest` or a pinned release number; anything else is a malformed path that
+    never named an edition at all.
+    """
+    parts = url.split("/", 3)
+    if len(parts) < 4 or parts[1] != "en":
+        return None, ""
+    return parts[2], parts[3]
+
+
+def build_editions(months, redirects, pages, keep=EDITION_LIMIT):
+    """[{edition, views: [per month]}] for English traffic, thickest first.
+
+    The report is `/en/stable/` alone, four fifths of English reading; this is
+    the only place the other fifth is a shape. What it is for is the handover —
+    how long a superseded release is still read, which is what decides whether a
+    fix is worth backporting to it.
+
+    Loops are excluded, on the path they loop on rather than per edition since
+    `redirects.csv` ships in every build. Without that this is a chart of April
+    2026, where one looping URL fired seven million pageviews and buried a series
+    whose whole point is that the total barely moves.
+
+    Editions past `keep` are summed into "other" rather than dropped, so the bars
+    stay the whole of English reading and the flat total stays checkable.
+    """
+    looping = {}
+
+    def loops(rest):
+        if rest not in looping:
+            kind, _ = redirect_walk(canonical(URL_PREFIX + rest), redirects, pages)
+            looping[rest] = kind == "cycle"
+        return looping[rest]
+
+    series = collections.defaultdict(collections.Counter)
+    totals = collections.Counter()
+    for month in months:
+        for row in store.read("docs-en", month):
+            edition, rest = edition_of(canonical(row["p"]))
+            if edition is None or loops(rest):
+                continue
+            series[edition][month] += row["pv"]
+            totals[edition] += row["pv"]
+
+    named = [edition for edition, _ in totals.most_common(keep)]
+    other = collections.Counter()
+    for edition in totals:
+        if edition not in named:
+            other.update(series[edition])
+
+    out = [{"edition": edition, "views": [series[edition].get(m, 0) for m in months]}
+           for edition in sorted(named, key=edition_order)]
+    if other:
+        out.append({"edition": "other",
+                    "views": [other.get(m, 0) for m in months]})
+    return out
+
+
+def edition_order(edition):
+    """Sort key: the current docs, then latest, then releases newest first.
+
+    Reading order rather than size order, so the stack reads like the release
+    history and a version keeps its place in the chart as its traffic decays.
+    """
+    if edition == "stable":
+        return (0,)
+    if edition == "latest":
+        return (1,)
+    number = re.findall(r"\d+", edition)
+    return (2, [-int(n) for n in number] or [0], edition)
+
+
 def build_docs(months, inventory):
     newest = months[-1]
     current = load_docs_month(newest)
@@ -446,6 +528,7 @@ def build_docs(months, inventory):
         "funnel": build_funnel(inventory),
         "churn": build_churn(inventory, {url: i for i, url in enumerate(paths)}),
         "sections": {k: [v.get(m, 0) for m in months] for k, v in sections.items()},
+        "editions": build_editions(months, redirects, pages),
         "unforwarded": unforwarded[:STALE_LIMIT],
         "looping": looping[:STALE_LIMIT],
         "unforwardedTotal": sum(r[1] for r in unforwarded),
