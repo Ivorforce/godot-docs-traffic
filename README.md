@@ -224,10 +224,10 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   chart with no reading and no words — its body is a raw HTML block, so its
   length means nothing either — and the one page behind what used to read "all
   but one page was read at least once".
-- **corpus** — which body of pages every figure down to the page table is about,
-  chosen by the path bar's first entries: the hand-written manual by default,
-  the manual with the class reference counted in, or the class reference on its
-  own.
+- **corpus** — which body of pages every figure down to the page-by-page table
+  is about, chosen by the path bar's first entries: the hand-written manual by
+  default, the manual with the class reference counted in, or the class
+  reference on its own.
 
   The class reference is 1,079 generated pages against 511 hand-written ones, so
   whether it counts decides the shape of every page-count comparison here. That
