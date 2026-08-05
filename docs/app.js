@@ -846,7 +846,14 @@ function renderScatter() {
   }
   charts.scatter.data.datasets = CHURN_BINS.map((b) => ({
     label: b.label,
-    data: groups.get(b.label),
+    // Ascending in x, which the chart is entitled to assume and cannot check:
+    // `parsing: false` has Chart.js mark every dataset sorted, and it then
+    // takes the x range from the first and last point alone. Fed in page order
+    // that range is two arbitrary pages wide, and the pages outside it are
+    // clipped away at the edge of the plot. Hover reads the same assumption
+    // through a binary search, so unsorted points also answer with the wrong
+    // page.
+    data: groups.get(b.label).sort((p, q) => p.x - q.x),
     backgroundColor: b.color,
     pointRadius: 2.5,
     pointHoverRadius: 5,
