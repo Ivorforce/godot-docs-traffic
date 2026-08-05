@@ -26,9 +26,18 @@
     padding: .6rem .75rem; background: #f6f8fa; border: 1px solid #d0d7de;
     border-radius: 6px; position: sticky; top: 0; z-index: 2;
   }
-  .controls input[type="search"] {
+  input[type="search"] {
     font: inherit; padding: .15rem .4rem; min-width: 12rem; flex: 0 0 auto;
   }
+  /* The filter sits with the table it narrows rather than in the path bar
+     above, because the path bar's scope is the whole report down to the table
+     and this box's is the table alone. Beside the heading, that needs no
+     caption; in the sticky row it needed two. */
+  .table-head {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    justify-content: space-between; gap: .5rem 1rem; margin-top: 2rem;
+  }
+  .table-head h2 { margin-top: 0; }
   .range-group button {
     font: inherit; padding: .15rem .6rem; border: 1px solid #d0d7de;
     background: #fff; cursor: pointer;
@@ -78,9 +87,8 @@
   td.path { font-size: .85rem; word-break: break-word; }
   .table-wrap { max-height: 30rem; overflow-y: auto; margin-top: .5rem; }
   .table-wrap thead th { position: sticky; top: 0; }
-  /* Grows to fill the row, so the search box sits at the right edge whatever
-     the path bar happens to contain — including nothing, before app.js has
-     filled it. min-height keeps the row from changing height at that moment. */
+  /* min-height holds the row open before app.js has filled it, so the sticky
+     bar does not change height under the charts on first paint. */
   .crumbs {
     display: flex; flex-wrap: wrap; align-items: center; gap: .1rem;
     font-size: .9rem; flex: 1 1 auto; min-width: 0; min-height: 1.75rem;
@@ -163,13 +171,11 @@ scoreboard, and not a list of pages to delete.</p>
 <p class="caption">The whole English <code>/en/stable/</code> manual over
 <span class="period-inline">…</span>. Everything from the path bar down to the
 page table follows the section you select there, and the sections after it are
-fixed; the filter box narrows the page table alone. These totals follow only the
-path bar's first choice, of whether the class reference counts as part of the
-manual.</p>
+fixed. These totals follow only the path bar's first choice, of whether the
+class reference counts as part of the manual.</p>
 
 <div class="controls">
   <span class="crumbs" id="crumbs"></span>
-  <input type="search" id="filter" placeholder="filter pages…" aria-label="Filter pages">
 </div>
 
 <h2>Attention against footprint
@@ -303,7 +309,10 @@ when it is in: those pages are generated from the engine's source and synced in
 bulk, so their diffs are the size of whatever the engine changed rather than of
 anything anyone wrote. They are three quarters of all edited lines.</p>
 
-<h2>Pages <span id="table-scope"></span></h2>
+<div class="table-head">
+  <h2>Pages <span id="table-scope"></span></h2>
+  <input type="search" id="filter" placeholder="filter pages…" aria-label="Filter pages">
+</div>
 <div class="table-wrap">
   <table id="pages-table">
     <thead><tr>
@@ -315,7 +324,8 @@ anything anyone wrote. They are three quarters of all edited lines.</p>
   </table>
 </div>
 <p class="caption">Sorted by reading volume; click a column to re-sort, and use
-the filter box above to narrow by path. <em>Translation reads</em> counts the
+the filter box beside the heading to narrow by path — it reaches this table and
+nothing else on the page. <em>Translation reads</em> counts the
 same page across all non-English languages, so a page can be far more read than
 its English column suggests. <em>Words</em> approximates the prose in the source
 file — notes and warnings counted, code blocks and table markup not — for
@@ -326,9 +336,9 @@ lines moved, and how many the page gained by it. A net near the total is a page
 that was written; a net near zero is a page that was rewritten.</p>
 
 <h2>Getting started, tutorial by tutorial</h2>
-<p class="caption">The sections from here on are fixed: the path bar and the
-filter box above do not reach them, because each answers a question about a
-named part of the site rather than about whichever part is selected.</p>
+<p class="caption">The sections from here on are fixed: the path bar above does
+not reach them, because each answers a question about a named part of the site
+rather than about whichever part is selected.</p>
 <div class="chart-box tall"><canvas id="chart-funnel"></canvas></div>
 <p class="caption">The four tutorials of the getting-started guide, in the order
 the docs present them, each page measured against its own tutorial's landing

@@ -1095,9 +1095,8 @@ function init() {
   }
 
   // Before any chart is constructed. Chart.js reads layout as it sizes its
-  // canvases, and Safari could service that read while the controls row was
-  // still empty — laying out the search box against a path bar that did not
-  // exist yet, and leaving it there until the next reflow.
+  // canvases, and the path bar sits above every one of them: filling it first
+  // means those reads happen against the height the row will keep.
   renderCrumbs();
 
   buildSections();
