@@ -132,6 +132,10 @@
     content: ""; position: absolute; left: 50%; top: -2px;
     bottom: -2px; width: 1px; background: #8c959f;
   }
+  /* The figure and its bar are one reading and must not be broken across two
+     lines; the column is the widest in the table because of it, which is what
+     two columns of figures cost before. */
+  #pages-table td.churn { white-space: nowrap; }
   td.path { font-size: .85rem; word-break: break-word; }
   .table-wrap { max-height: 30rem; overflow-y: auto; margin-top: .5rem; }
   .table-wrap thead th { position: sticky; top: 0; }
@@ -285,8 +289,13 @@ across this manual, so a point's colour is genuinely a third fact about it.
 Month-on-month change and translation share were both tried here and both leaned
 on the horizontal axis — translation share slides from 0.95× in the least-read
 tenth of pages to about 0.45× in the most-read, which paints the traffic
-distribution rather than the page. Both remain in the table below, where they are
-read one page at a time and that ceases to matter.</p>
+distribution rather than the page. Neither is in the table below either, and for
+a stronger reason than the one that kept them out of here: month-on-month change
+over two months says less about a page than about the site's own weather, and
+translation share turned out not to measure what it was taken to. It was read as
+saying which pages the translations had reached and which ones an English
+rewrite would cost work — against the translated coverage this project measures
+separately it scores 0.067, so it says neither.</p>
 <p class="caption">Short pages swing, and the ratio has no ceiling: a 22-line
 stub can take 175 lines of work and read as 7.95×, where a 500-line page would
 need a rewrite half as large again to pass 1×. They crowd both ends accordingly:
@@ -392,24 +401,33 @@ are three quarters of all edited lines.</p>
 <div class="table-wrap">
   <table id="pages-table">
     <thead><tr>
-      <th>page</th><th>pageviews</th><th>vs prev. month</th>
-      <th>translation reads</th><th>words</th><th>lines changed</th>
-      <th>net</th><th>last edit</th>
+      <th>page</th><th>pageviews</th><th>words</th><th>lines changed</th>
     </tr></thead>
     <tbody></tbody>
   </table>
 </div>
-<p class="caption">Sorted by reading volume; click a column to re-sort, and use
-the filter box beside the heading to narrow by path — it reaches this table and
-nothing else on the page. <em>Translation reads</em> counts the
-same page across all non-English languages, so a page can be far more read than
-its English column suggests. <em>Words</em> approximates the prose in the source
-file — notes and warnings counted, code blocks and table markup not — for
-comparing pages against each other rather than as a typographic measure.
-<em>Lines changed</em> and <em>net</em> are this page's share of the churn above,
-over <span class="churn-window">…</span>: how many source
-lines moved, and how many the page gained by it. A net near the total is a page
-that was written; a net near zero is a page that was rewritten.</p>
+<p class="caption">The scatter above, read one page at a time: its two axes and
+its colouring, which is all this report has to say about a single page. Sorted
+by reading volume; click a column to re-sort, and use the filter box beside the
+heading to narrow by path — it reaches this table and nothing else on the page.
+<em>Words</em> approximates the prose in the source file — notes and warnings
+counted, code blocks and table markup not — for comparing pages against each
+other rather than as a typographic measure. <em>Lines changed</em> is this page's
+share of the churn above, over <span class="churn-window">…</span>, with the same
+bar the grid draws: how far the work tipped from the point where added and
+deleted balance, right for a page that grew and left for one that shrank. A bar
+run out to one end is a page that was written; a short one is a page that was
+rewritten at the length it already had, and the figures behind it are on
+hover.</p>
+<p class="caption">Four columns is what survived asking of each one what a
+maintainer would do differently for having read it. A page's translated reading,
+its change on the month and the date it was last edited were all here and are
+all gone: the share did not measure what it was read as measuring, change on the
+month ranked pages by their own smallest denominators, and a date cannot be read
+in either direction, since an old one is a page that is finished or a page nobody
+has revisited and a recent one is usually a typo. This report's own README keeps
+the figures behind each of those, because all three were reasonable to expect and
+the checks are the useful part.</p>
 
 <h2>Getting started, tutorial by tutorial</h2>
 <p class="caption">The sections from here on are fixed: the path bar above does

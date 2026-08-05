@@ -18,6 +18,12 @@ const PREFIX = DOCS.prefix;
 // deleted over the churn window; NET is added minus deleted, so a page whose
 // lines and net are equal only grew, and one whose net is near zero was
 // rewritten at its own length.
+//
+// PREV — the previous month's pageviews — is emitted and read by nothing. It
+// was the table's month-on-month column, which said too little over two months
+// to keep (see COLUMNS). It stays in the payload at one integer a row because
+// it is where a trend would start, and a trend wants the other eleven months
+// the raw data holds as well.
 const PATH = 0, PV = 1, PREV = 2, WORDS = 3, EDITED = 4, I18N = 5, GENERATED = 6,
       LINES = 7, NET = 8, LENGTH = 9;
 
@@ -245,11 +251,29 @@ function pct(v, total) {
   return (p < 1 ? p.toFixed(1) : Math.round(p)) + "%";
 }
 
-// A fraction as a signed percentage. The sign is the point — "+8%" and "8%"
-// read differently when the neighbouring figure may be negative.
-function signed(v) {
-  const p = Math.round(100 * v);
-  return (p > 0 ? "+" : "") + p + "%";
+/* Added against deleted, drawn out from the point where the two balance: right
+   for something that grew, left for something that shrank, as far as the work
+   tipped. Nothing is drawn for a thing that was not edited at all — a bar at
+   the balance point means added and deleted came out equal, which is the
+   opposite reading.
+
+   Shared by the churn grid and the pages table, which ask the same question of
+   a section and of a page, and would otherwise both answer it with two columns
+   of figures and a division left to the reader. The figures stay in the title
+   at both call sites, in each one's own words. */
+function splitBar(net, churn) {
+  if (!churn) return null;
+  const bar = document.createElement("span");
+  // 0 for something reworked at its own length, ±1 for one that only added or
+  // only removed. Guarded, though net can only exceed churn if the two
+  // disagree about what they counted.
+  const tilt = Math.max(-1, Math.min(1, net / churn));
+  bar.className = tilt < 0 ? "split down" : "split";
+  const fill = document.createElement("i");
+  fill.style.width = `${(50 * Math.abs(tilt)).toFixed(1)}%`;
+  fill.style[tilt < 0 ? "right" : "left"] = "50%";
+  bar.appendChild(fill);
+  return bar;
 }
 
 /* 24,229 -> "24k". Only the churn grid uses this: ten columns of thousands
@@ -267,10 +291,6 @@ function ageLabel(ts) {
   if (!ts) return "unknown";
   const d = new Date(ts * 1000);
   return d.toISOString().slice(0, 7);
-}
-
-function i18nRatio(row) {
-  return row[PV] ? row[I18N] / row[PV] : 0;
 }
 
 /* Lines changed over the churn window against the page's length now. Dividing
@@ -420,8 +440,18 @@ function buildScatter() {
                       ? "untouched over the window"
                       : `${num(r.lines)} line${r.lines === 1 ? "" : "s"} changed · ` +
                         `${r.turnover.toFixed(2)}× its ${num(r.length)} lines`,
-                    `translations ${num(r.i18n)} · ${r.ratio.toFixed(2)}× the ` +
-                      `English figure`,
+                    // The count, not the count over the English figure. Both
+                    // left the table, for different reasons: the count because
+                    // it ranks pages almost exactly as pageviews already does,
+                    // the share because it measures 0.067 against the
+                    // translated coverage it was taken to stand for. The first
+                    // is redundant in a column and a plain fact on a hover,
+                    // where nothing is being ranked. The second is not a fact
+                    // about the page anywhere, so it is nowhere.
+                    `translations ${num(r.i18n)}`,
+                    // The date is kept here, where it is context for a page
+                    // already chosen rather than an order to choose by. It was
+                    // cut from the table for the sorting it invited.
                     `last edit ${r.age}`];
           },
         } },
@@ -733,7 +763,6 @@ function renderScatter() {
       x: Math.max(row[PV], 0.5),
       y: Math.max(row[WORDS], 1),
       pv: row[PV], words: row[WORDS], i18n: row[I18N],
-      ratio: i18nRatio(row),
       lines: row[LINES] || 0,
       length: row[LENGTH],
       turnover: turnover(row),
@@ -871,17 +900,53 @@ function renderFunnelNote(series) {
     parts.join("; ") + ".";
 }
 
+/* Four columns: what a page is read, what it costs to keep, and how much of it
+   has moved lately. Which is the scatter above, read one page at a time — its
+   two axes and its colouring — and it is what this report has to say about a
+   page. Four of the eight this table used to carry were dropped, each for its
+   own reason, and the reasons are kept because the columns were plausible.
+
+   Month-on-month change was one figure against one other, over two months, and
+   the report holds thirteen. Half the manual moved less than 8.5% and the page
+   as a whole moved 5.7%, which no row subtracted, so most of the column was
+   the site's own weather. What was left of the sort was small pages and new
+   ones: of the thirty largest risers, twenty-three drew under 250 pageviews the
+   month before, against a median of 566 across the table, and four of the top
+   ten were community/asset_store/, which is a section being published rather
+   than a page being read. A trend wants more than two points and belongs in a
+   line, not a ratio.
+
+   Translation reading, as a count, ranked pages at 0.93 against pageviews — 42
+   of the top 50 were the same pages in nearly the same order. As a share of the
+   page's English reading it ranked them differently, and was cut anyway,
+   because what it ranked them by is not a fact about the page: against the
+   translated coverage in data/l10n.json it measures 0.067, so it does not say
+   which pages the translations have reached or which ones an English rewrite
+   would cost work. Its extremes are small denominators — the twenty highest
+   shares have a median of 73 pageviews against 609 across the table, and no
+   page above 3,000 pageviews reaches 1× at all. Coverage itself is the
+   measure those readings wanted, and it is not in this payload; see the README.
+
+   Last edit was cut for the reason it had already been cut from the scatter's
+   colouring: it cannot be read in either direction. An old date is a page that
+   is finished or a page that is forgotten, and nothing here separates them. A
+   recent one is mostly a typo — 29% of these pages were last edited in a
+   quarter that moved two lines or fewer, 60% in one that moved ten or fewer,
+   and the median is six lines, 0.007× the page. Sorted newest first the column
+   put about/introduction.html, at 37,096 pageviews, under a 2026-06 date it
+   earned with a two-line change. At the old end it adds nothing either: the 60
+   pages last edited before the window opened already read zero lines changed,
+   and the date only says how much further back. Lines changed measures the same
+   activity by size, which is the version that can be read.
+
+   Lines changed and net were two figures that answered one question by
+   division, which is the objection the churn grid's own total answered with a
+   bar — so this column takes the same bar. */
 const COLUMNS = [
   { key: "path", label: "page", get: (r) => DOCS.paths[r[PATH]] },
   { key: PV, get: (r) => r[PV], fmt: num },
-  { key: "delta", get: (r) => (r[PREV] ? (r[PV] - r[PREV]) / r[PREV] : null) },
-  { key: I18N, get: (r) => r[I18N], fmt: num },
   { key: WORDS, get: (r) => r[WORDS], fmt: num },
-  { key: LINES, get: (r) => r[LINES], fmt: num },
-  // Signed, because the sign is the whole reading: +900 against 900 changed
-  // lines is a page that was written, 0 against 900 is one that was replaced.
-  { key: NET, get: (r) => r[NET], fmt: (v) => (v > 0 ? "+" : "") + num(v) },
-  { key: EDITED, get: (r) => r[EDITED], fmt: (v) => (v ? ageLabel(v) : "—") },
+  { key: LINES, get: (r) => r[LINES] || 0, fmt: num },
 ];
 
 const sortState = { col: 1, asc: false };
@@ -915,16 +980,26 @@ function renderTable() {
     for (const c of COLUMNS.slice(1)) {
       const td = document.createElement("td");
       const v = c.get(row);
-      if (c.key === "delta") {
-        if (v === null) {
-          td.textContent = "—";
+      td.textContent = c.fmt ? c.fmt(v) : v;
+      // The one column drawn as a shape rather than read as a figure keeps its
+      // figures behind it: the bar is what the eye compares down the column,
+      // and the numbers are what a maintainer quotes.
+      if (c.key === LINES) {
+        const churn = row[LINES] || 0, net = row[NET] || 0;
+        const added = (churn + net) / 2;
+        const bar = splitBar(net, churn);
+        if (bar) {
+          td.className = "churn";
+          td.appendChild(bar);
+          td.title =
+            `${num(churn)} lines changed over the window · ` +
+            `${num(added)} added, ${num(churn - added)} deleted · ` +
+            `net ${net < 0 ? "−" : "+"}${num(Math.abs(net))}, ` +
+            `${Math.abs(net / Math.max(row[LENGTH], 1)).toFixed(2)}× the ` +
+            `${num(row[LENGTH])} lines this page runs to now`;
         } else {
-          const p = Math.round(v * 100);
-          td.textContent = signed(v);
-          td.style.color = p > 15 ? "#1a7f37" : p < -15 ? "#cf222e" : "#57606a";
+          td.title = "not edited over the churn window";
         }
-      } else {
-        td.textContent = c.fmt ? c.fmt(v) : v;
       }
       tr.appendChild(td);
     }
@@ -1075,22 +1150,15 @@ function renderChurn() {
     // the direction, where it costs nothing to read and cannot be got wrong,
     // and leaves the length saying how far the work tipped. The figures stay a
     // hover away, where the rest of this grid keeps them too.
+    //
+    // The pages table below now draws the same bar for the same reason, off
+    // splitBar, so a section and a page are read the same way.
     const added = (child.churn + child.net) / 2;
     const deleted = child.churn - added;
     const td = cell("td", compact(child.churn));
     td.className = "total";
-    const bar = document.createElement("span");
-    // How far the work tipped, from the point where added and deleted balance:
-    // 0 for a row reworked at its own length, ±1 for one that only added or
-    // only removed. Guarded, though net can only exceed churn if the two
-    // disagree about what they counted.
-    const tilt = Math.max(-1, Math.min(1, child.net / child.churn));
-    bar.className = tilt < 0 ? "split down" : "split";
-    const fill = document.createElement("i");
-    fill.style.width = `${(50 * Math.abs(tilt)).toFixed(1)}%`;
-    fill.style[tilt < 0 ? "right" : "left"] = "50%";
-    bar.appendChild(fill);
-    td.appendChild(bar);
+    const bar = splitBar(child.net, child.churn);
+    if (bar) td.appendChild(bar);
     // The net is the figure that needs a scale beside it: +500 lines is a
     // rewrite of a short page and a rounding error on tutorials/. It gets the
     // one the cells above already use — the row's length now — in the same

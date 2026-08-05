@@ -279,28 +279,58 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   non-English languages, so a page's weight in translation shows up next to its
   English figure. 35% of reading on the current docs is non-English.
 
-  The table shows the count and the **share** — translated reading as a multiple
-  of the same page's English figure. The share exists because the raw count
+  Neither the count nor the **share** — translated reading as a multiple of the
+  same page's English figure — is on the page. The count went first: it
   correlates with English reading at r = 0.92 on log-log, so it carries almost
-  nothing the English column does not. The share varies structurally:
-  `engine_details/development` runs at 0.78× and `getting_started/introduction`
-  at 0.72×, against 0.35× for `tutorials/networking` and 0.26× for
-  `tutorials/inputs`. People start in their own language and move to English as
-  they go deeper. Two readings are actionable: a share near zero flags a page
-  the translations have not reached (the whole of `community/asset_store/` sits
-  at 0.00–0.13×, being new), and a high share flags a page where an English
-  rewrite invalidates work in fifteen languages.
+  nothing the English column does not, and 42 of the 50 most-read pages in
+  translation are the 50 most-read pages in nearly that order. The share ranks
+  pages differently, at −0.42, and held the column until what it ranks them *by*
+  was checked.
 
-  It was a scatter colouring until the share was checked against the axis it
-  sits beside. Median share by tenth of traffic runs 0.95, 0.75, 0.69, 0.56,
-  0.54, 0.53, 0.47, 0.51, 0.43, 0.57 — a slide of −0.42 against log pageviews,
-  because translated reading is spread more evenly than English reading and the
-  ratio therefore falls as the denominator climbs. Dividing out the English
-  figure escapes the r = 0.92 of the raw count and lands on a weaker version of
-  the same problem: the colour draws the shape of the traffic distribution while
-  appearing to say something about the page. Both readings above are per-page
-  facts checked before editing one named page, which is what a table column is
-  for.
+  Two readings were claimed for it, and `data/l10n.json` can test both, since it
+  holds the translated words per page per language that the share was taken to
+  stand for. **The share measures 0.067 against that coverage.** So a low share
+  does not flag a page the translations have not reached — the ten lowest sit at
+  59–79% translated, at or above the manual's 62% median — and a high share does
+  not flag a page where an English rewrite invalidates work in fifteen
+  languages, the ten highest running 44–89% with no pattern. The one page that
+  fit the story, `engine_details/engine_api/vendor_runtime_module` at 0%
+  coverage, is simply new.
+
+  What the share's extremes measure is small denominators. The twenty
+  highest-share pages have a median of 73 pageviews against 609 across the
+  table: `configuring_an_ide/kdevelop` reaches 3.19× on 31 views. Of the 54
+  pages above 1×, 13 clear 300 pageviews and 2 clear 1,000; above 3,000
+  pageviews none do, and the p5–p95 spread closes from 0.24–1.27 to 0.21–0.79.
+  The column was least dramatic exactly where its denominator could be trusted.
+
+  Coverage is the measure those two readings wanted, and it is real: it spreads
+  39% to 93%, correlates 0.46 with traffic — translators do work in demand order
+  — and names pages, `tutorials/networking/high_level_multiplayer` at 53% on
+  6,857 pageviews, `gdscript_exports` at 54% on 5,198. It is not in `docs/data.js`
+  and `aggregate.py` does not read `l10n.json`, so putting it there makes the
+  ~120 MB clone a required input for every build of the report. It also answers
+  a question about *how* to edit an English page rather than whether to, which is
+  a weaker claim on a column than the four that are left. Left undone
+  deliberately, and cheap to add if the translation side ever becomes the
+  question.
+
+  The mechanism was visible a step earlier and read as survivable. Median share
+  by tenth of traffic runs 0.95, 0.75, 0.69, 0.56, 0.54, 0.53, 0.47, 0.51, 0.43,
+  0.57 — a slide of −0.42 against log pageviews, because translated reading is
+  spread more evenly than English reading and the ratio therefore falls as the
+  denominator climbs. That was enough to keep the share out of the scatter's
+  colouring, where it would have drawn the shape of the traffic distribution
+  while appearing to say something about the page. It was not enough to keep it
+  out of the table, because a column is read one page at a time and leaning on
+  traffic looked like a comparison rather than a fault. The argument was
+  reasonable and the conclusion was wrong: what a column is read one page at a
+  time *for* is the thing it measures, and this one had not been checked against
+  anything. The 0.067 is that check, and it is the one that should have come
+  first.
+
+  The scatter still names the raw count on hover, which is a plain fact about a
+  page. The share is not shown anywhere.
 
   Two joins have to be right for any of that to mean anything.
 
@@ -362,25 +392,41 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   (9.1%), while `navigation/` is the reverse: 4.8% of pages, 2.7% of words, being
   many short documents rather than a lot of prose. Pages in the manual range from
   under 150 words to over 2,000, so the choice is not cosmetic.
-- **change on the month** — a page's pageviews against the month before, as a
-  table column. Two months is a short baseline: pages under a few hundred views
-  a month move 15% on noise.
+- **change on the month** — a page's pageviews against the month before.
+  Computed, not shown: it was a scatter colouring, then a table column, and it
+  is now neither. Two months is a short baseline: pages under a few hundred
+  views a month move 15% on noise.
 
-  It too was a scatter colouring, stated with the whole docs' change divided out
-  so that in a month when the manual rose 5.7% a page at +5% read as holding its
-  place rather than growing. What killed it is that the noise and the signal
-  land in the same place. 84% of pages sit within ±20% of the docs' own move, and
-  of the 81 that do not, 61 are below median traffic — the correlation between
-  absolute excess growth and log pageviews is −0.23. So the colouring was
-  loudest exactly where the chart's own caption had to tell the reader to
+  As a colouring it was stated with the whole docs' change divided out, so that
+  in a month when the manual rose 5.7% a page at +5% read as holding its place
+  rather than growing. What killed it there is that the noise and the signal
+  land in the same place. 84% of pages sit within ±20% of the docs' own move,
+  and of the 81 that do not, 61 are below median traffic — the correlation
+  between absolute excess growth and log pageviews is −0.23. So the colouring
+  was loudest exactly where the chart's own caption had to tell the reader to
   discount it, and it answered a question about last month rather than about
   what a page costs and returns.
+
+  As a column it kept none of that repair: it was the raw ratio, so the site's
+  own 5.7% sat unsubtracted in every row and a page reading +3% had lost ground
+  without saying so. Sorting by it returned the same small pages the colouring
+  had — of the 30 largest risers, 23 drew under 250 pageviews the month before,
+  against a median of 566 across the table — and four of the top ten were
+  `community/asset_store/`, a section being published rather than a page being
+  read. Half the manual moved less than 8.5% either way. The column was
+  uncorrelated with every column it sat beside, at |ρ| ≤ 0.14, so it was cut
+  for saying too little rather than for repeating a neighbour, which is the
+  rarer reason and the one worth writing down.
+
+  `PREV` stays in the row layout `scripts/aggregate.py` emits, unread. A trend
+  is the version of this worth having, and it wants the other eleven months in
+  `data/raw` rather than a second look at these two.
 - **last edit** — the most recent commit touching the source file, from a single
   `git log` walk. For the class reference these are bulk sync commits, not
   authorship, which is one reason it is excluded by default.
 
-  It is a table column only. It was a scatter colouring until the commits behind
-  it were checked: of the 130 manual pages last edited in the three months to
+  Computed, not shown. It was a scatter colouring until the commits behind it
+  were checked: of the 130 manual pages last edited in the three months to
   `bca391ae6`, the median was last touched by a commit changing under five lines
   and 30% by one changing two or fewer — `fix typos in gettext i18n tutorial`,
   `fixed Visual Studio being typo'd as Visaul Studio`, a six-file sweep replacing
@@ -390,11 +436,34 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   scale that cannot be read in either direction was worth more as space than as
   colour — and measuring the size of those commits instead is what **lines
   changed** below does, which is what the scatter ended up colouring by.
+
+  It survived as a table column on the argument that a date is a fact to look up
+  rather than a scale to read, and that argument does not hold either. Sorting
+  the column newest-first is the use it invites, and what that returns is the
+  typo fixes: of the fifteen most recently edited pages, nine moved ten lines or
+  fewer in the quarter their last edit falls in, and `about/introduction.html`,
+  at 37,096 pageviews the third most-read page in the manual, carries a 2026-06
+  date it earned with a two-line change. Across the whole table 29% of pages
+  were last edited in a quarter that moved two lines or fewer, 60% in one that
+  moved ten or fewer; the median is six lines, 0.007× the page, and 54% fall in
+  the *barely touched* bin the scatter's colouring uses. At the other end the
+  60 pages last edited before the churn window opened already read zero lines
+  changed, so the date adds only how much further back — precision on a signal
+  that was mute to begin with. Six more pages disagree between the two measures,
+  showing zero churn against an edit inside the window, which is what a rename
+  looks like from here.
+
+  The date is still on the scatter's hover, where it is context for a page
+  already chosen rather than an order to choose by.
 - **lines changed** — source lines added plus deleted over the two years ending
   at the recorded docs commit, from `git log --numstat -M`. Added and
-  deleted are kept apart, and the table shows the total and the **net**: a page
-  whose net is close to its total was written, one whose net is near zero was
-  rewritten at its existing length. Per section the same split separates growth
+  deleted are kept apart, and the table shows the total with the **net** as a
+  bar drawn from the point where the two balance: a page whose net is close to
+  its total was written and runs the bar out to one end, one whose net is near
+  zero was rewritten at its existing length and barely leaves the middle. The
+  two were a pair of columns until it was clear that reading them meant
+  dividing one by the other — the same objection, and the same answer, as the
+  churn grid's own total. Per section the same split separates growth
   from rework — `tutorials/` added 13,473 lines against 3,623 deleted while
   `getting_started/` added 225 against 222, the same activity by volume and a
   different one in kind.
