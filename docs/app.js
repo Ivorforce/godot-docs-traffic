@@ -1,8 +1,8 @@
 /* Godot documentation traffic — page logic.
 
    All data arrives in one generated data.js (window.DATA), so the page opens
-   straight from disk with no server. State (section, class-reference toggle,
-   filter, scatter colouring) mirrors into location.hash.
+   straight from disk with no server. State (corpus, section, filter, footprint
+   mode) mirrors into location.hash.
 
    Pageviews are the only traffic metric anywhere in this file. Per-visitor and
    per-session figures are not reliable on this analytics setup (see the README)
@@ -24,7 +24,7 @@ const PATH = 0, PV = 1, PREV = 2, WORDS = 3, EDITED = 4, I18N = 5, GENERATED = 6
 // The per-page monthly series behind the churn grid, and the months it covers.
 const CHURN = DOCS.churn;
 
-const state = { section: "", classes: false, filter: "", footprint: "words" };
+const state = { section: "", corpus: "manual", filter: "", footprint: "words" };
 const charts = {};
 
 const COLORS = {
@@ -76,13 +76,21 @@ const FUNNEL_STYLES = [
 
 // ---- state <-> hash ---------------------------------------------------------
 
+// "1" is what the two-way toggle wrote when the only choice was whether the
+// class reference counted, and links carrying it are already out in the world.
+function corpusOf(params) {
+  const c = params.get("c");
+  if (c === "all" || c === "1") return "all";
+  return c === "classes" ? "classes" : "manual";
+}
+
 // Every key is assigned, absent or not: this also runs on popstate, where a key
 // missing from the entry being restored means "back to the default" rather than
 // "keep whatever is on screen".
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   state.section = p.get("s") || "";
-  state.classes = p.get("c") === "1";
+  state.corpus = corpusOf(p);
   state.filter = p.get("q") || "";
   state.footprint = p.get("f") === "pages" ? "pages" : "words";
 }
@@ -90,7 +98,7 @@ function readHash() {
 function writeHash() {
   const p = new URLSearchParams();
   if (state.section) p.set("s", state.section);
-  if (state.classes) p.set("c", "1");
+  if (state.corpus !== "manual") p.set("c", state.corpus);
   if (state.filter) p.set("q", state.filter);
   if (state.footprint !== "words") p.set("f", state.footprint);
   const q = p.toString();
@@ -101,7 +109,7 @@ function writeHash() {
   // entry is added.
   const cur = new URLSearchParams(location.hash.slice(1));
   const moved = (cur.get("s") || "") !== state.section ||
-                (cur.get("c") === "1") !== state.classes;
+                corpusOf(cur) !== state.corpus;
   const url = q ? "#" + q : location.pathname;
   if (moved) history.pushState(null, "", url);
   else history.replaceState(null, "", url);
@@ -109,15 +117,70 @@ function writeHash() {
 
 // ---- selection --------------------------------------------------------------
 
-function rel(row) {
+function docPath(row) {
   return DOCS.paths[row[PATH]].slice(PREFIX.length);
 }
 
-// The class reference is 1,079 generated pages against 511 hand-written ones.
-// Left in, it decides the shape of every page-count comparison on the page, so
-// it is opt-in everywhere rather than only in the chart that motivated it.
+/* Where the class reference sits, read off the pages rather than written in:
+   inventory.py decides what counts as generated, and if it ever names a second
+   directory this falls back to the docs root, so that corpus opens on those
+   directories instead of on one arbitrary half of itself. */
+const GENERATED_BASE = (() => {
+  const tops = new Set();
+  for (const row of DOCS.rows) {
+    if (!row[GENERATED]) continue;
+    const path = docPath(row);
+    const cut = path.indexOf("/");
+    tops.add(cut === -1 ? "" : path.slice(0, cut));
+  }
+  const [only] = tops;
+  return tops.size === 1 && only ? only + "/" : "";
+})();
+
+/* What the path bar's first entries choose between. The class reference is
+   1,079 generated pages against 511 hand-written ones: left in, it decides the
+   shape of every page-count comparison on the page, so it is opt-in everywhere
+   rather than only in the chart that motivated it.
+
+   It is also offered on its own, because it is a different thing to maintain
+   rather than a large section of the manual — synced from the engine's source,
+   so the questions worth asking of it are about which classes people read and
+   which the engine keeps moving, and every one of those is answered by a chart
+   the manual crowds out. On its own it is rooted at classes/, since a corpus
+   whose top level is a single directory would draw one bar at 100%.
+
+   `tile` is the corpus named short enough for a stat tile, and with "the" in
+   front of it, in the sentences this page generates — all of which said "the
+   manual" when the manual was the only thing they could be about. */
+const CORPORA = {
+  all: {
+    label: "Full Manual + Class Reference", base: "", has: () => true,
+    tile: "English stable docs", pages: "including class reference",
+  },
+  manual: {
+    label: "Full Manual", base: "", has: (r) => !r[GENERATED],
+    tile: "hand-written manual", pages: "hand-written",
+  },
+  classes: {
+    label: "Class Reference", base: GENERATED_BASE, has: (r) => !!r[GENERATED],
+    tile: "class reference", pages: "generated from the engine's source",
+  },
+};
+
+function corpus() {
+  return CORPORA[state.corpus];
+}
+
+// A page's path within the corpus in view. The class reference is rooted at
+// classes/, so its pages come out named as the reference names them rather
+// than as one more directory of the manual.
+function rel(row) {
+  return docPath(row).slice(corpus().base.length);
+}
+
 function visibleRows() {
-  return DOCS.rows.filter((r) => state.classes || !r[GENERATED]);
+  const { has } = corpus();
+  return DOCS.rows.filter((r) => has(r));
 }
 
 function inSection(row, section) {
@@ -423,8 +486,8 @@ function renderStats() {
   }
   const quiet = rows.filter((r) => r[PV] < 100).length;
   const stats = [
-    ["pageviews", num(total), "English stable docs"],
-    ["pages", num(rows.length), state.classes ? "including class reference" : "hand-written"],
+    ["pageviews", num(total), corpus().tile],
+    ["pages", num(rows.length), corpus().pages],
     ["carry half the reading", num(half), `${pct(half, rows.length)} of pages`],
     ["under 100 views", num(quiet), `${pct(quiet, rows.length)} of pages`],
     ["read in translation", num(DOCS.i18nViews),
@@ -457,8 +520,6 @@ function renderStats() {
    Menus list directories only. Pages sitting at a level are not places you can
    go, and the chart below already shows them alongside their siblings. */
 
-const ROOT_LABELS = { true: "Full Manual + Class Reference", false: "Full Manual" };
-
 let openMenu = null;
 
 function closeMenu() {
@@ -469,19 +530,12 @@ function closeMenu() {
   openMenu = null;
 }
 
-/* The two corpus entries sit at the top of the root menu rather than in a
-   checkbox of their own: the class reference is 1,079 generated pages under
-   classes/ and nothing else lives there, so "include it" and "look at this part
-   of the manual" are the same kind of choice and belong in the same list. */
+/* The corpus entries sit at the top of the root menu rather than in a control
+   of their own: the class reference is 1,079 generated pages under classes/ and
+   nothing else lives there, so "include it" and "look at this part of the
+   manual" are the same kind of choice and belong in the same list. */
 function menuItems(section) {
   const items = [];
-  if (!section) {
-    items.push({ label: ROOT_LABELS.true, checked: state.classes,
-                 run: () => { state.classes = true; state.section = ""; } });
-    items.push({ label: ROOT_LABELS.false, checked: !state.classes,
-                 run: () => { state.classes = false; state.section = ""; } });
-    items.push({ separator: true });
-  }
   const children = childrenOf(section);
   const total = children.reduce((a, c) => a + c.pv, 0);
   for (const child of children) {
@@ -490,7 +544,19 @@ function menuItems(section) {
     items.push({ label: child.key, note: pct(child.pv, total),
                  run: () => { state.section = target; } });
   }
-  return items;
+  if (section) return items;
+
+  const corpora = Object.keys(CORPORA).map((key) => ({
+    label: CORPORA[key].label,
+    checked: state.corpus === key,
+    // The section goes with it: a path inside one corpus names nothing in
+    // another, and the class reference has no sections to land in at all.
+    run: () => { state.corpus = key; state.section = ""; },
+  }));
+  // The rule only earns its place if something follows it. The class reference
+  // is a flat list of pages, so its root menu is the three corpora and nothing
+  // else.
+  return items.length ? [...corpora, { separator: true }, ...items] : corpora;
 }
 
 function buildMenu(button, heading, items) {
@@ -549,8 +615,13 @@ function buildMenu(button, heading, items) {
 function toggleMenu(button, wrap, section, label) {
   if (openMenu && openMenu.button === button) { closeMenu(); return; }
   closeMenu();
-  const heading = section ? `share of ${label} reading` : "share of all reading";
-  const { menu, entries } = buildMenu(button, heading, menuItems(section));
+  const items = menuItems(section);
+  // The heading says what the percentages are shares of, so it goes when there
+  // are none: the class reference's root menu lists corpora and no sections.
+  const heading = !items.some((i) => i.note)
+    ? "what this report covers"
+    : section ? `share of ${label} reading` : "share of all reading";
+  const { menu, entries } = buildMenu(button, heading, items);
   wrap.appendChild(menu);
   button.setAttribute("aria-expanded", "true");
   const onOutside = (e) => {
@@ -602,7 +673,7 @@ function renderCrumbs() {
     box.appendChild(wrap);
   };
 
-  add(ROOT_LABELS[state.classes], "", parts.length === 0);
+  add(corpus().label, "", parts.length === 0);
   parts.forEach((part, i) => {
     const sep = document.createElement("span");
     sep.className = "crumb-sep";
@@ -612,23 +683,44 @@ function renderCrumbs() {
   });
 }
 
+/* One row per child, and the chart is read by comparing the pair of bars on a
+   row, which needs the row to have height. A level can hold far more children
+   than that allows: the class reference is 1,079 pages at one level, and drawn
+   in full they are a smear a pixel high apiece. So the bars stop at the
+   most-read and what the cap left out is printed underneath, the same as the
+   churn grid does.
+
+   Thirty is above every level the hand-written manual has — tutorials/ is the
+   largest at 26 — so nothing there is cut today. Both bars stay shares of the
+   whole level either way, so the ones drawn keep meaning what they mean and
+   simply no longer sum to 100%. */
+const SECTION_BARS = 30;
+
 function renderSections() {
   const children = childrenOf(state.section);
+  const shown = children.slice(0, SECTION_BARS);
   const rows = sectionRows();
   const totalPv = rows.reduce((a, r) => a + r[PV], 0) || 1;
   const byWords = state.footprint === "words";
   const size = (c) => (byWords ? c.words : c.pages);
   const totalSize = rows.reduce((a, r) => a + (byWords ? r[WORDS] : 1), 0) || 1;
 
-  charts.sections.$children = children;
-  charts.sections.data.labels = children.map((c) => c.key + (c.dir ? "/" : ""));
+  charts.sections.$children = shown;
+  charts.sections.data.labels = shown.map((c) => c.key + (c.dir ? "/" : ""));
   charts.sections.data.datasets[0].data =
-    children.map((c) => Math.round((1000 * c.pv) / totalPv) / 10);
+    shown.map((c) => Math.round((1000 * c.pv) / totalPv) / 10);
   charts.sections.data.datasets[1].data =
-    children.map((c) => Math.round((1000 * size(c)) / totalSize) / 10);
+    shown.map((c) => Math.round((1000 * size(c)) / totalSize) / 10);
   charts.sections.data.datasets[1].label =
     byWords ? "size — % of all words" : "size — % of all pages";
   charts.sections.update();
+
+  document.getElementById("sections-note").textContent =
+    children.length > shown.length
+      ? `The ${shown.length} most-read of ${num(children.length)} are shown. ` +
+        `Both bars remain shares of the level as a whole, so what is drawn no ` +
+        `longer adds up to it.`
+      : "";
 }
 
 function renderScatter() {
@@ -681,7 +773,9 @@ function renderConcentration() {
   };
   const quiet = pv.filter((v) => v < 100).length;
   const zero = pv.filter((v) => v === 0).length;
-  const where = state.section ? `${PREFIX}${state.section}/` : "the English stable docs";
+  const where = state.section
+    ? `${PREFIX}${corpus().base}${state.section}/`
+    : `the ${corpus().tile}`;
   let text =
     `Of ${num(pv.length)} pages in ${where}, the ${num(rank(50))} most-read carry ` +
     `half the reading, ${num(rank(80))} carry 80%, and ${num(rank(95))} carry 95% ` +
@@ -878,12 +972,12 @@ function renderChurn() {
   //
   // Taken over every visible row rather than over the section on screen, so
   // drilling in does not move it and two rows from two views can be compared.
-  // The classes toggle does move it, and by almost nothing: 76.5% hand-written
-  // against 76.8% with the generated pages in.
-  const corpus = visibleRows().reduce(
+  // The corpus does move it, and by almost nothing: 76.5% hand-written against
+  // 76.8% with the generated pages in.
+  const whole = visibleRows().reduce(
     (acc, r) => { acc.c += r[LINES]; acc.n += r[NET]; return acc; },
     { c: 0, n: 0 });
-  const ref = corpus.c ? (corpus.c + corpus.n) / 2 / corpus.c : 0.5;
+  const ref = whole.c ? (whole.c + whole.n) / 2 / whole.c : 0.5;
   const cell = (tag, text) => {
     const node = document.createElement(tag);
     node.textContent = text;
@@ -1006,11 +1100,12 @@ function renderChurn() {
                `net ${child.net < 0 ? "−" : "+"}${num(Math.abs(child.net))}, ` +
                `${Math.abs(child.net / length).toFixed(2)}× the ` +
                `${num(child.length)} lines ${name} runs to now · ` +
-               `${pct(added, child.churn)} of the work added, against the ` +
-               // Named, because the manual has two averages eight points apart:
-               // 76% of every line changed was an addition, where the mean over
-               // pages is 68%. The line is the one the row's own figure is on.
-               `manual's average of ${pct(ref, 1)} per changed line`;
+               `${pct(added, child.churn)} of the work added, against ` +
+               // Per changed line, said out loud, because the manual has two
+               // averages eight points apart: 76% of every line changed was an
+               // addition, where the mean over pages is 68%. The line is the
+               // one the row's own figure is on.
+               `${pct(ref, 1)} per changed line across the ${corpus().tile}`;
     tr.appendChild(td);
     body.appendChild(tr);
   }
@@ -1024,7 +1119,9 @@ function renderChurn() {
     el.textContent = pct(ref, 1);
   }
 
-  const where = state.section ? PREFIX + state.section + "/" : "the manual";
+  const where = state.section
+    ? PREFIX + corpus().base + state.section + "/"
+    : `the ${corpus().tile}`;
   const silent = children.length - edited.length;
   const notes = [];
   if (!edited.length) {
@@ -1161,10 +1258,10 @@ function init() {
 
   readHash();
   // A link into the class reference carries its own scope. Without this, a
-  // shared #s=classes/... URL that lost its c=1 opens on an empty report.
+  // shared #s=classes/... URL that lost its c= opens on an empty report.
   if (state.section && !sectionRows().length &&
       DOCS.rows.some((r) => inSection(r, state.section))) {
-    state.classes = true;
+    state.corpus = "all";
   }
 
   // Before any chart is constructed. Chart.js reads layout as it sizes its

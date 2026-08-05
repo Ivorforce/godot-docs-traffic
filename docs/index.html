@@ -216,11 +216,12 @@ scoreboard, and not a list of pages to delete.</p>
 <p id="error" hidden></p>
 
 <div class="stats" id="stats"></div>
-<p class="caption">The whole English <code>/en/stable/</code> manual over
+<p class="caption">The English <code>/en/stable/</code> docs over
 <span class="period-inline">…</span>. Everything from the path bar down to the
 page table follows the section you select there, and the sections after it are
-fixed. These totals follow only the path bar's first choice, of whether the
-class reference counts as part of the manual.</p>
+fixed. These totals follow only the path bar's first choice, of which body of
+pages is in view: the hand-written manual, the manual with the class reference
+counted in, or the class reference on its own.</p>
 
 <div class="controls">
   <span class="crumbs" id="crumbs"></span>
@@ -233,6 +234,7 @@ class reference counts as part of the manual.</p>
   </span>
 </h2>
 <div class="chart-box tall"><canvas id="chart-sections"></canvas></div>
+<p class="caption" id="sections-note"></p>
 <p class="caption">For each part of the manual, the share of reading it receives
 against the share of the manual it occupies. Use the path bar above to move
 between sections; hover a bar for the underlying counts and for pageviews per
@@ -253,7 +255,8 @@ between, and the two disagree: a section of many short pages looks large by page
 count and modest by words, and a section of a few long ones the other way round.
 Across the manual, pages range from under 150 words to over 2,000. The class
 reference is excluded by default from both, being generated from the engine's own
-source rather than written or trimmed here.</p>
+source rather than written or trimmed here; the path bar's first entries count it
+in, or show it on its own.</p>
 
 <h2>What each page costs and returns</h2>
 <div class="chart-box square"><canvas id="chart-scatter"></canvas></div>
@@ -376,11 +379,11 @@ pages went, 8,424 deleted lines against 2,030 added. Counted back in the manual
 runs at 68% added, so every bar here sits a little further right than the docs
 really went.</p>
 <p class="caption">The class reference follows the same choice as everywhere
-else on this page — left out until the path bar's first entry puts it back — but
-read its rows differently when it is in: those pages are generated from the
-engine's source and synced in bulk, so their diffs are the size of whatever the
-engine changed rather than of anything anyone wrote. They are three quarters of
-all edited lines.</p>
+else on this page — left out until the path bar's first entries put it back, or
+show it alone — but read its rows differently when it is in: those pages are
+generated from the engine's source and synced in bulk, so their diffs are the
+size of whatever the engine changed rather than of anything anyone wrote. They
+are three quarters of all edited lines.</p>
 
 <div class="table-head">
   <h2>Pages <span id="table-scope"></span></h2>
@@ -516,8 +519,10 @@ then will still appear here.</p>
         figure beside it at all.</li>
     <li>The class reference is generated from the engine's source and synced in
         bulk, so its git dates record sync commits rather than anyone writing.
-        For that reason the report opens on the manual without it; the first
-        entry in the path bar puts its 1,079 pages back in.</li>
+        For that reason the report opens on the manual without it; the path
+        bar's first entries count its 1,079 pages in, or open the report on
+        them alone — a corpus of its own rather than a section of the manual,
+        with no sections inside it and every figure on the page then about it.</li>
     <li>Only English <code>/en/stable/</code> pages are shown in detail.
         Translation reads are summed across all other languages per page, and
         both sides count the current docs only, so the share compares like with

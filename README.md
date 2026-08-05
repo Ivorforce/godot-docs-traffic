@@ -224,6 +224,31 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   chart with no reading and no words — its body is a raw HTML block, so its
   length means nothing either — and the one page behind what used to read "all
   but one page was read at least once".
+- **corpus** — which body of pages every figure down to the page table is about,
+  chosen by the path bar's first entries: the hand-written manual by default,
+  the manual with the class reference counted in, or the class reference on its
+  own.
+
+  The class reference is 1,079 generated pages against 511 hand-written ones, so
+  whether it counts decides the shape of every page-count comparison here. That
+  is why it is one choice at the top rather than a filter on the one chart that
+  motivated it. Alone it is a corpus rather than a section: those pages sync in
+  bulk from the engine's source, and asked as a group they answer a different
+  question — which classes people read, and which the engine keeps moving —
+  that the manual crowds off every chart while the two share a scale. Selected,
+  the report roots itself at `classes/`, a corpus whose top level is a single
+  directory otherwise being one bar at 100%. Where that root is comes from the
+  pages rather than from the page: `inventory.py` names the generated
+  directories, and if it ever names a second one the corpus opens on those
+  directories instead.
+
+  The section chart draws the 30 most-read children of the level and says
+  underneath what that left out, the same as the churn grid does. The class
+  reference is what needs it — a flat level of 1,079 pages is a smear a pixel
+  high apiece — and 30 is above every level the hand-written manual has, where
+  `tutorials/` is the largest at 26, so nothing there is cut. Both bars stay
+  shares of the whole level, so the ones drawn keep meaning what they mean and
+  simply no longer sum to 100%.
 - **removed** — the commit that deleted a page's source file, from a second
   `git log --diff-filter=D` walk. A page removed *before* the traffic window
   was gone for all of it, so every view is a reader hitting a dead end; one
@@ -504,11 +529,11 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   set would also change shape whenever a new upgrade guide lands, and the
   boundary itself is an inference about what that file's creation date means.
 
-  The class reference follows the same toggle as everywhere else rather than
-  being special-cased out, but its rows mean something different: those pages
-  sync in bulk from the engine's source, so their diffs are the size of whatever
-  the engine changed — 77% of all edited lines, with nobody having written a
-  sentence.
+  The class reference follows the same corpus choice as everywhere else rather
+  than being special-cased out, but its rows mean something different: those
+  pages sync in bulk from the engine's source, so their diffs are the size of
+  whatever the engine changed — 77% of all edited lines, with nobody having
+  written a sentence.
 
   It measures activity, not quality and not need. A page nobody has touched
   reads identically whether it is finished or forgotten, and nothing in this
