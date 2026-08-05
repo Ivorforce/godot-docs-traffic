@@ -245,7 +245,7 @@ def churn_periods(months, head_month):
 
 
 def period_label(group):
-    """"Q3 24". Short because eleven columns share the width of the page.
+    """"Q3 24". Short because ten columns share the grid's width.
 
     Groups are calendar-aligned, so every month in one falls in the same
     quarter and the first of them names the whole column — including the newest,

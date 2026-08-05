@@ -187,8 +187,8 @@ function signed(v) {
   return (p > 0 ? "+" : "") + p + "%";
 }
 
-/* 24,229 -> "24k". Only the churn grid uses this: eleven columns of thousands
-   separators do not fit the page, and the grid is read for shape and order of
+/* 24,229 -> "24k". Only the churn grid uses this: ten columns of thousands
+   separators do not fit its width, and the grid is read for shape and order of
    magnitude, with the exact figure a hover away and the table below carrying it
    in full. One decimal below 10k, where the difference between 1,279 and 4,926
    is worth a character. */
@@ -869,6 +869,19 @@ function renderChurn() {
   // shading the raw counts, arrived at from the other side.
   const top = Math.max(...shown.map(
     (c) => Math.max(...c.periods) / Math.max(c.length, 1)), 1e-9);
+  // The manual's own balance, for the hover to put a row's split beside. Not
+  // drawn on the bars: they diverge from the point where added and deleted are
+  // equal, and a second reference an inch from the first is two marks to tell
+  // apart in three-quarters of an inch.
+  //
+  // Taken over every visible row rather than over the section on screen, so
+  // drilling in does not move it and two rows from two views can be compared.
+  // The classes toggle does move it, and by almost nothing: 76.5% hand-written
+  // against 76.8% with the generated pages in.
+  const corpus = visibleRows().reduce(
+    (acc, r) => { acc.c += r[LINES]; acc.n += r[NET]; return acc; },
+    { c: 0, n: 0 });
+  const ref = corpus.c ? (corpus.c + corpus.n) / 2 / corpus.c : 0.5;
   const cell = (tag, text) => {
     const node = document.createElement(tag);
     node.textContent = text;
@@ -886,7 +899,11 @@ function renderChurn() {
     if (period.partial) th.title = "part-period: ends at the docs commit";
     head.appendChild(th);
   }
-  head.append(cell("th", "added"), cell("th", "deleted"));
+  const total = cell("th", "changed");
+  total.className = "total";
+  total.title = "lines changed over the whole window; the bar runs right for a " +
+                "row that grew and left for one that shrank";
+  head.appendChild(total);
 
   const body = document.createElement("tbody");
   for (const child of shown) {
@@ -935,13 +952,45 @@ function renderChurn() {
       }
       tr.appendChild(td);
     });
-    // Added and deleted are the row's total and net read apart again.
-    for (const value of [(child.churn + child.net) / 2,
-                         (child.churn - child.net) / 2]) {
-      const td = cell("td", compact(value));
-      td.title = `${num(value)} lines`;
-      tr.appendChild(td);
-    }
+    // The window total, which is also what the rows are ordered by, and the
+    // added-against-deleted split drawn out from the point where the two
+    // balance.
+    //
+    // The split was two columns of figures, which asked the reader to divide
+    // one by the other to arrive at the only thing they say: whether a section
+    // grew or was reworked at the length it already had. Both were whole-window
+    // figures sitting at the end of a row of quarters, so they read as two more
+    // periods, and they were the widest columns in the table.
+    //
+    // A bar filled from the left said it as a length instead, which is the
+    // comparison the reader wanted, but it buried the sign: a row that came out
+    // shorter is one whose fill stops before half way, and nothing on the bar
+    // said where half way was. Drawing from the balance point puts the sign in
+    // the direction, where it costs nothing to read and cannot be got wrong,
+    // and leaves the length saying how far the work tipped. The figures stay a
+    // hover away, where the rest of this grid keeps them too.
+    const added = (child.churn + child.net) / 2;
+    const deleted = child.churn - added;
+    const td = cell("td", compact(child.churn));
+    td.className = "total";
+    const bar = document.createElement("span");
+    // How far the work tipped, from the point where added and deleted balance:
+    // 0 for a row reworked at its own length, ±1 for one that only added or
+    // only removed. Guarded, though net can only exceed churn if the two
+    // disagree about what they counted.
+    const tilt = Math.max(-1, Math.min(1, child.net / child.churn));
+    bar.className = tilt < 0 ? "split down" : "split";
+    const fill = document.createElement("i");
+    fill.style.width = `${(50 * Math.abs(tilt)).toFixed(1)}%`;
+    fill.style[tilt < 0 ? "right" : "left"] = "50%";
+    bar.appendChild(fill);
+    td.appendChild(bar);
+    td.title = `${num(child.churn)} lines changed: ${num(added)} added, ` +
+               `${num(deleted)} deleted — ${child.net < 0 ? "−" : "+"}` +
+               `${num(Math.abs(child.net))} lines on the manual, ` +
+               `${pct(added, child.churn)} of the work added against the ` +
+               `manual's ${pct(ref, 1)}`;
+    tr.appendChild(td);
     body.appendChild(tr);
   }
 
@@ -950,6 +999,9 @@ function renderChurn() {
   const grid = document.getElementById("churn-grid");
   grid.hidden = !shown.length;
   grid.replaceChildren(thead, body);
+  for (const el of document.querySelectorAll(".churn-balance")) {
+    el.textContent = pct(ref, 1);
+  }
 
   const where = state.section ? PREFIX + state.section + "/" : "the manual";
   const silent = children.length - edited.length;

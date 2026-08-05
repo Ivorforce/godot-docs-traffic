@@ -71,10 +71,14 @@
   /* The churn grid is wider than the page on a phone and must scroll on its
      own rather than widen the document. */
   .grid-wrap { overflow-x: auto; margin-top: .5rem; }
-  #churn-grid { width: auto; min-width: 100%; font-size: .8rem; }
+  /* The only table on the page that is not stretched to the full width. Ten
+     narrow columns come to about the measure the captions are set to, and
+     holding it there keeps the grid inside the column of text it belongs to
+     instead of overhanging every paragraph that explains it. */
+  #churn-grid { width: auto; font-size: .8rem; }
   /* Tighter than the page's other tables, and the reason the figures are
-     abbreviated: eleven columns have to share the page's width, and a row read
-     half at a time is the one thing this table must not be. */
+     abbreviated: ten columns have to fit that measure, and a row read half at a
+     time is the one thing this table must not be. */
   #churn-grid th, #churn-grid td { padding: .25rem .35rem; }
   #churn-grid th { cursor: default; }
   #churn-grid th[scope="row"] {
@@ -84,6 +88,35 @@
   }
   #churn-grid td.cell { min-width: 2.4rem; }
   #churn-grid td.empty { color: #adb5bd; }
+  /* The window total, set apart by a rule because it is the one figure in the
+     row that is not a quarter — without it the eye reads the column as a ninth
+     one and wonders why it is so large. */
+  #churn-grid th.total, #churn-grid td.total {
+    border-left: 1px solid #d0d7de; padding-left: .5rem;
+  }
+  #churn-grid td.total { white-space: nowrap; }
+  /* Added against deleted, drawn out from the point where the two balance:
+     right for a row that grew, left for one that shrank, as far as the work
+     tipped. Which side it falls on is the question a pair of figures answered
+     worst — it took a division — and it is the one thing here that a length
+     answers for free. */
+  .split {
+    position: relative; display: inline-block; width: 3rem; height: .45rem;
+    margin-left: .4rem; vertical-align: baseline; background: #eaeef2;
+  }
+  .split i { position: absolute; top: 0; bottom: 0; background: #0969da; }
+  /* Shrinking rows are drawn dark rather than red. A page that lost lines has
+     not gone wrong — trimming is among the things this report exists to find —
+     and the tone is here to catch the eye on a stub a few pixels long, not to
+     grade it. It doubles as the one cue that survives a greyscale print. */
+  .split.down i { background: #424a53; }
+  /* The origin, where added and deleted are equal. It crosses the bar rather
+     than sitting inside it so that it stays visible under a fill running
+     either way. */
+  .split::after {
+    content: ""; position: absolute; left: 50%; top: -2px;
+    bottom: -2px; width: 1px; background: #8c959f;
+  }
   td.path { font-size: .85rem; word-break: break-word; }
   .table-wrap { max-height: 30rem; overflow-y: auto; margin-top: .5rem; }
   .table-wrap thead th { position: sticky; top: 0; }
@@ -299,15 +332,39 @@ deleting themselves into others. Two years is a choice about what anyone can
 act on rather than a limit of the data: four years was tried, reaches back some
 eight minor releases, and where a level has more rows than fit it filled half the
 list with pages last worked on in 2023.</p>
-<p class="caption">The <em>added</em> and <em>deleted</em> columns are the same
-work seen a second way. A section adding several times what it deletes is
-growing new material; one where the two are close was reworked at its existing
-length, which is a different activity and often a more careful one. The class
-reference follows the same choice as everywhere else on this page — left out
-until the path bar's first entry puts it back — but read its rows differently
-when it is in: those pages are generated from the engine's source and synced in
-bulk, so their diffs are the size of whatever the engine changed rather than of
-anything anyone wrote. They are three quarters of all edited lines.</p>
+<p class="caption">The last column is the row's whole window rather than one
+quarter of it — the figure the rows are ordered by — and the bar beside it is
+that work drawn out from the point where added and deleted balance: to the
+right for a section that came out longer, to the left for one that came out
+shorter, and as far as the work tipped that way. A bar filling its half is
+material that was only written or only removed; a stub either side of the line
+is a section reworked at the length it already had, which is a different
+activity and often a more careful one. Hover for the figures, including the
+net.</p>
+<p class="caption">Which side a row falls on is worth the ink because it is
+rare and does not show at this level: no top-level section has shrunk over the
+window, but drill in and 63 of the 512 rows the report can reach run the other
+way, in three of every five sections. It is also the one thing about a row that
+the figures cannot be read for — neither the total nor the quarters say
+anything about it — so the bar is where it has to live. The leftward direction
+is drawn dark rather than red: a page that lost lines has not gone wrong,
+trimming and merging being among the things this report was built to find, and
+red would grade the answer on the way to giving it. The tone is there to catch
+the eye on a bar four pixels long, which is also why it survives a greyscale
+print.</p>
+<p class="caption">One reason the bars lean right so consistently — the manual
+runs at <span class="churn-balance">…</span> of every changed line added — is
+that pages deleted outright are not in this table, being no longer part of the
+docs, and they were the one deletion-heavy thing in the history: 42 hand-written
+pages went, 8,424 deleted lines against 2,030 added. Counted back in the manual
+runs at 68% added, so every bar here sits a little further right than the docs
+really went.</p>
+<p class="caption">The class reference follows the same choice as everywhere
+else on this page — left out until the path bar's first entry puts it back — but
+read its rows differently when it is in: those pages are generated from the
+engine's source and synced in bulk, so their diffs are the size of whatever the
+engine changed rather than of anything anyone wrote. They are three quarters of
+all edited lines.</p>
 
 <div class="table-head">
   <h2>Pages <span id="table-scope"></span></h2>
