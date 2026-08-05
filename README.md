@@ -24,7 +24,7 @@ The headline finding so far is about the data rather than the docs. The manual
 has **no dead pages**: all 1,590 English `/en/stable/` pages were read at least
 once in July 2026, and 511 hand-written pages carry a million pageviews. So "what
 can be trimmed" has no easy answer here, and the report is built to show
-proportion — 26 pages carry half the reading — rather than to produce a deletion
+proportion — 26 pages carry half the pageviews — rather than to produce a deletion
 list.
 
 ### Why this report only uses pageviews
@@ -94,7 +94,8 @@ checkable.
   only what someone has already translated, so reading that alone reports every
   page as complete.
 - `scripts/aggregate.py` — joins raw traffic and the inventory into
-  `docs/data.js`, a single `window.DATA = {…}` assignment.
+  `docs/data.js`, a single `window.DATA = {…}` assignment. It also runs two
+  integrity checks that print warnings and change nothing (see *Checks*).
 - `docs/` — the page. Hand-written `index.html`, vanilla `app.js`, and a
   vendored [Chart.js](https://github.com/chartjs/Chart.js) 4.4.9 (MIT).
 
@@ -155,8 +156,12 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   split. The inference holds in one direction only, which is enough: since a
   server-side redirect records no pageview, a URL that reaches this report is not
   covered by one.
+
+  **Forwarded is not the same as arrived**, which is why the checks below follow
+  the hops rather than counting one. Eight rules currently forward to a URL that
+  is not a page either, and that URL matches the same rule again.
 - **translation reads** — pageviews for the same path summed across all
-  non-English languages. 35% of reading on the current docs is non-English. The
+  non-English languages. 35% of pageviews on the current docs is non-English. The
   scatter names the count on hover; it is nowhere else (see *What was tried and
   cut*).
 
@@ -180,7 +185,7 @@ so the page opens from `file://` by double-clicking it. `fetch()` is blocked on
   words being roughly what a section costs to keep correct. Page count is offered
   as a toggle because it answers a different question, and the two genuinely
   disagree: inside `tutorials/`, `shaders/` is level with its readership by page
-  count (6.4% against 6.3% of reading) but well above it by words (9.1%), while
+  count (6.4% against 6.3% of pageviews) but well above it by words (9.1%), while
   `navigation/` is the reverse at 4.8% of pages and 2.7% of words.
 - **last edit** — the most recent commit touching the source file. Shown on the
   scatter's hover only, as context for a page already chosen (see *What was tried
@@ -263,18 +268,76 @@ the docs commit rather than at the end of the traffic window, and reaches back
 two years where every traffic figure in the report is one month, so no column of
 the grid has a traffic figure beside it at all.
 
+## Checks
+
+`aggregate.py` runs two integrity checks on every build. Both print warnings and
+change nothing — no figure moves, no field is added to `docs/data.js`, and the
+run still writes. `--check` lists what they found. They exist because
+`update.yml` publishes on the 2nd of every month with nobody watching, and
+because both failures they look for are invisible in the report itself: a month
+in which one URL took 81% of the traffic draws exactly like an ordinary month.
+
+**Redirect cycles** need no traffic data at all — they are a property of
+`_static/redirects.csv` and the page list. Since 404.rst matches by
+`pathname.endsWith(source)` and applies the redirect in the browser, a
+destination that is not a page serves 404.rst again, which consults the same
+file again. Where the destination is itself a suffix of its own source, that is
+a loop, and each pass fires the analytics script:
+
+```
+/development/file_formats/index.html
+  -> /engine_details/development/file_formats/index.html   (not a page)
+  -> /engine_details/development/file_formats/index.html   ...
+```
+
+The tree has no `development/` segment there; the page is
+`engine_details/file_formats/index.html`, which the neighbouring
+`gdscript_grammar` rule already spells correctly. **Eight rules currently loop**,
+into seven distinct URLs, and readers reaching them account for 7,830,862
+pageviews across the stored history. 7,248,306 of those landed on that one URL
+in April 2026 — 84% of the month's `/en/stable/` traffic, in two runs of about a
+week at ~600,000 pageviews a day against a site baseline of ~80,000. The report
+files every one of them under **forwarded**, the bucket it calls benign on the
+grounds that the reader arrived where they meant to.
+
+**Traffic anomalies** are checked on two arms, because neither alone would have
+named both incidents. Per page, a URL is flagged when it gains at least 1% of the
+newest month against the *median* of its own earlier months — an excess rather
+than a ratio, since both incidents on record rose from zero, where every ratio is
+infinite and a ratio rule flags every newly written page instead. A median rather
+than the previous month, so a burst already in the history cannot raise the bar
+for the months after it. One percent is about 17,000 pageviews here, so a page
+must gain a small section's worth of reading to trip it; one or two rows a month
+is the normal reading, usually the landing page of a version entering
+development.
+
+Per day, from `site-daily.ndjson`, a day is flagged above 3× its trailing 90-day
+median. This arm covers the whole docs site rather than English alone, which is
+what the per-page files hold: the largest bursts on record, about 3M pageviews a
+month across November and December 2025, are not in `docs-en-*.ndjson` at all. No
+day is judged until the window behind it is full, which is the whole handling of
+the one thing a trailing median reads backwards — pageviews rose 40× over the two
+months the tracker was being set up, and against a median drawn from that ramp
+every ordinary day after it clears the line.
+
+Neither check fails the build. The cycles are a bug in godot-docs rather than in
+this report, and a month with a burst in it is still the right month to publish:
+in the one case on record the page-level figures were untouched and only the
+stale bucket read wrong. What must not happen is publishing it with nobody
+knowing.
+
 ## What was tried and cut
 
-Four things were built far enough to check and then removed. The checks are the
-useful part, so they are kept here.
+Four things were built far enough to check and then removed. What they turned up
+is the useful part, so it is kept here.
 
 **A translator's view** — for each language, which pages are most read against
 how much of them is still untranslated. Abandoned at the point of drawing it,
 because **translators are already working in demand order**: across the
-mid-coverage languages the correlation between a page's reading and its coverage
+mid-coverage languages the correlation between a page's pageviews and its coverage
 runs 0.44 to 0.60 (ja 0.60, es 0.50, fr 0.45, pt-br 0.44), and their top decile by
 demand is 75–85% translated against 30–44% overall. The recommendation would also
-have been obvious — 13 of Japanese's top 20 by reading per remaining word are
+have been obvious — 13 of Japanese's top 20 by pageviews per remaining word are
 `getting_started/` — and the ranking degenerates exactly where coverage is lowest:
 for Polish, at 5% translated, the top entries are two-word index stubs with five
 readers, because a small denominator wins a ratio. `scripts/l10n.py` and
@@ -296,7 +359,7 @@ Two findings from it survive:
   readers in it over the month — 27% for Italian, 15% Polish, 13% German. A stop
   signal rather than a start signal, and invisible in Weblate.
 
-**Translation share** — translated reading as a multiple of the same page's
+**Translation share** — translated pageviews as a multiple of the same page's
 English figure. It was a table column until what it ranks pages *by* was checked
 against the coverage in `data/l10n.json`: **the share measures 0.067 against
 it.** So a low share does not flag a page the translations have not reached — the
@@ -324,7 +387,7 @@ last edited in the three months to `bca391ae6`, the median was last touched by a
 commit changing under five lines and 30% by one changing two or fewer. "Recently
 edited" therefore means someone corrected a typo, and an old date is equally
 mute, since a page can go untouched because it is still correct.
-`about/introduction.html`, the third most-read page in the manual, carries a
+`about/introduction.html`, the third most-viewed page in the manual, carries a
 2026-06 date it earned with a two-line change. Measuring the size of those
 commits instead is what **lines changed** does.
 
@@ -339,6 +402,7 @@ python3 scripts/fetch.py probe          # what this instance supports
 python3 scripts/fetch.py backfill       # ~13 months, about a minute
 python3 scripts/inventory.py            # clones godot-docs (~740 MB), ~7 s after
 python3 scripts/aggregate.py            # writes docs/data.js
+python3 scripts/aggregate.py --check    # what the checks found; writes nothing
 open docs/index.html                    # no server needed
 ```
 
@@ -349,10 +413,12 @@ the newest complete one, committing `data/` and `docs/data.js` back to `main`.
 It needs `PLAUSIBLE_API_KEY` as a repository secret.
 
 Tests: `python3 -m unittest discover tests`. They cover URL canonicalisation, the
-rst parsers, and the invariants the page depends on — including a check that no
-identity-derived number reaches the page, and one that per-visitor figures are
-still implausible, so if the instance is ever fixed the suite says so instead of
-the constraint quietly outliving its reason. Where the CSV export is present they
+rst parsers, the two integrity checks — the redirect walk against a loop it must
+catch from either end, the anomaly bars against a burst from zero and against the
+ordinary movement they must not flag — and the invariants the page depends on,
+including a check that no identity-derived number reaches the page, and one that
+per-visitor figures are still implausible, so if the instance is ever fixed the
+suite says so instead of the constraint quietly outliving its reason. Where the CSV export is present they
 also cross-check page totals against it, since it was produced independently of
 the API path.
 
@@ -369,7 +435,7 @@ the same kind of silence: a wrong href renders exactly as well as a right one.
 
 **The rest of the page is not covered.** Everything else runs against the Python
 payload, and the payload has been right every time the page was wrong. The bug
-that made the section chart's reading bars sum to 89.6% instead of 100% lived
+that made the section chart's pageview bars sum to 89.6% instead of 100% lived
 entirely in JavaScript grouping logic.
 
 Headless Chrome renders `file://` directly, which is enough to check both that

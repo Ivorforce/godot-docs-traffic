@@ -574,7 +574,7 @@ class TestGeneratedPayload(unittest.TestCase):
     def test_funnel_covers_the_whole_getting_started_guide(self):
         """Read from the toctrees, so a page added to getting_started/ without
         being listed in one would be missing from the chart while the page's
-        own prose calls the guide a third of all reading."""
+        own prose calls the guide a third of all pageviews."""
         charted = {g["landing"] for g in self.docs["funnel"]}
         charted.update(u for g in self.docs["funnel"] for u in g["steps"])
         under = {p for p in self.docs["paths"] if "/getting_started/" in p}
@@ -756,6 +756,207 @@ class TestRedirects(unittest.TestCase):
         """A sparse checkout that stops fetching the CSV must not quietly
         reclassify the whole table."""
         self.assertIsNone(aggregate.redirect_for("/en/stable/about/index.html", {}))
+
+
+class TestRedirectWalk(unittest.TestCase):
+    """Where a forwarded reader actually ends up.
+
+    `redirect_for` answers one hop. This follows the hops as the browser does,
+    because 404.rst runs *on* the 404 page: a destination that is not a page
+    either serves 404.rst again, which consults the same file again. A rule
+    whose destination is a suffix of its own source therefore matches itself,
+    and the loop fires a pageview per pass — which is how one URL took 81% of
+    April 2026 on a docs site whose reading did not move.
+    """
+
+    PAGES = {"/en/stable/engine_details/file_formats/index.html": {},
+             "/en/stable/tutorials/ui/size_and_anchors.html": {}}
+
+    def walk(self, url, rules):
+        return aggregate.redirect_walk(url, dict(rules), self.PAGES)
+
+    def test_a_rule_landing_on_a_page_is_not_a_cycle(self):
+        self.assertEqual(
+            self.walk("/en/stable/tutorials/gui/size_and_anchors.html",
+                      [("/tutorials/gui/size_and_anchors.html",
+                        "/tutorials/ui/size_and_anchors.html")]),
+            ("page", "/en/stable/tutorials/ui/size_and_anchors.html"))
+
+    def test_hops_are_followed_to_the_page(self):
+        """Two rules in a row are ordinary: a page that moved twice."""
+        self.assertEqual(
+            self.walk("/en/stable/learning/features/gui/size_and_anchors.html",
+                      [("/learning/features/gui/size_and_anchors.html",
+                        "/tutorials/gui/size_and_anchors.html"),
+                       ("/tutorials/gui/size_and_anchors.html",
+                        "/tutorials/ui/size_and_anchors.html")]),
+            ("page", "/en/stable/tutorials/ui/size_and_anchors.html"))
+
+    def test_a_destination_matching_its_own_source_loops(self):
+        """The real shape: the destination carries a `development/` segment the
+        tree does not have, and ends with the source it came from."""
+        rules = [("/development/file_formats/index.html",
+                  "/engine_details/development/file_formats/index.html")]
+        self.assertEqual(
+            self.walk("/en/stable/development/file_formats/index.html", rules),
+            ("cycle",
+             "/en/stable/engine_details/development/file_formats/index.html"))
+
+    def test_a_loop_is_found_from_either_end(self):
+        """Readers reach the destination directly — it is the URL in the traffic
+        data — so entering the cycle part-way through must be caught too."""
+        rules = [("/development/file_formats/index.html",
+                  "/engine_details/development/file_formats/index.html")]
+        kind, _ = self.walk(
+            "/en/stable/engine_details/development/file_formats/index.html", rules)
+        self.assertEqual(kind, "cycle")
+
+    def test_a_longer_loop_is_still_a_loop(self):
+        rules = [("/a.html", "/b.html"), ("/b.html", "/a.html")]
+        self.assertEqual(self.walk("/en/stable/a.html", rules)[0], "cycle")
+
+    def test_a_destination_that_is_not_a_page_and_not_forwarded_is_dead(self):
+        """Broken but finite: the reader gets a 404 and stops. A cycle is the
+        subset that costs pageviews, so the two must not be reported alike."""
+        self.assertEqual(
+            self.walk("/en/stable/gone.html", [("/gone.html", "/nowhere.html")]),
+            ("dead", "/en/stable/nowhere.html"))
+
+    def test_an_offsite_destination_ends_the_walk(self):
+        """The reader left; nothing here can follow them, and prefixing an
+        absolute URL with /en/stable/ would invent a path."""
+        self.assertEqual(
+            self.walk("/en/stable/legacy.html",
+                      [("/legacy.html", "https://example.com/moved")]),
+            ("external", "https://example.com/moved"))
+
+    def test_a_self_referencing_rule_for_a_live_page_never_loops(self):
+        """A rule pointing at itself is only a loop where the page is missing:
+        the server answers a live URL with the page, and 404.rst — which is
+        what applies these rules — never runs."""
+        rules = {"/tutorials/ui/size_and_anchors.html":
+                 "/tutorials/ui/size_and_anchors.html"}
+        self.assertEqual(aggregate.redirect_cycles(rules, self.PAGES), [])
+
+    def test_a_rule_forwarding_to_a_missing_page_that_rematches_is_flagged(self):
+        rules = {"/development/file_formats/index.html":
+                 "/engine_details/development/file_formats/index.html"}
+        self.assertEqual(
+            [source for source, _ in
+             aggregate.redirect_cycles(rules, self.PAGES)],
+            ["/development/file_formats/index.html"])
+
+    def test_looping_pageviews_are_counted_from_the_traffic(self):
+        """A rule nobody reaches costs nothing, so the figure comes from the
+        URLs readers asked for rather than from the rule set."""
+        rules = {"/development/file_formats/index.html":
+                 "/engine_details/development/file_formats/index.html"}
+        current = {
+            "/en/stable/engine_details/development/file_formats/index.html": 7000,
+            "/en/stable/engine_details/file_formats/index.html": 300,  # a page
+            "/en/stable/tutorials/ui/size_and_anchors.html": 50,
+        }
+        views, hits = aggregate.cycle_views(current, rules, self.PAGES)
+        self.assertEqual(views, 7000)
+        self.assertEqual([url for url, _ in hits],
+                         ["/en/stable/engine_details/development/"
+                          "file_formats/index.html"])
+
+
+class TestTrafficAnomalies(unittest.TestCase):
+    """The report publishes unattended, and a month can be about something
+    other than reading without any figure on the page looking wrong.
+
+    Both arms are needed. The per-page arm names the URL but only sees English;
+    the daily arm covers the whole site but only says when.
+    """
+
+    # The bar is a share of the month, so every fixture needs a month around it:
+    # in a corpus of two pages any move is a large share of the reading, and the
+    # threshold would mean nothing. Here 1% is about 1,000 pageviews, which is
+    # the proportion the real data has — 17,000 against pages that draw a few
+    # hundred.
+    REST = "/en/stable/rest-of-the-manual.html"
+
+    def history(self, series):
+        """{month: {url: pageviews}} from {url: [pageviews per month]}."""
+        length = len(next(iter(series.values())))
+        series = dict(series, **{self.REST: [100000] * length})
+        months = [f"2026-{i + 1:02d}" for i in range(length)]
+        return ({m: {u: v[i] for u, v in series.items()}
+                 for i, m in enumerate(months)}, months)
+
+    def flagged(self, series):
+        history, months = self.history(series)
+        return {url for _, url, _, _ in aggregate.page_anomalies(history, months)}
+
+    def test_a_burst_from_nothing_is_flagged(self):
+        """The case this exists for: a URL with no history taking most of a
+        month. A ratio rule cannot see it — every ratio from zero is infinite,
+        so the same rule fires on every newly written page."""
+        self.assertEqual(
+            self.flagged({"/en/stable/a.html": [1000, 1000, 1000, 1000],
+                          "/en/stable/loop.html": [0, 0, 0, 5000]}),
+            {"/en/stable/loop.html"})
+
+    def test_ordinary_movement_is_not_flagged(self):
+        self.assertEqual(
+            self.flagged({"/en/stable/a.html": [1000, 1100, 900, 1200],
+                          "/en/stable/b.html": [500, 400, 600, 550]}),
+            set())
+
+    def test_a_small_page_doubling_is_below_the_bar(self):
+        """A page moving from 2 to 20 pageviews is a ratio of ten and worth
+        nobody's attention. The bar is a share of the month, so size decides."""
+        self.assertEqual(
+            self.flagged({"/en/stable/a.html": [10000] * 4,
+                          "/en/stable/small.html": [2, 2, 2, 20]}),
+            set())
+
+    def test_last_months_burst_does_not_raise_this_months_bar(self):
+        """The baseline is a median, so a spike inside the history cannot hide
+        a second one after it — nor make the month after the spike read as a
+        collapse."""
+        history, months = self.history(
+            {"/en/stable/a.html": [1000, 1000, 1000, 1000, 1000],
+             "/en/stable/loop.html": [0, 0, 9000, 0, 9000]})
+        self.assertEqual([url for _, url, _, _ in
+                          aggregate.page_anomalies(history, months)],
+                         ["/en/stable/loop.html"])
+
+    def test_one_month_of_history_flags_nothing(self):
+        """A first run has nothing to compare against and must not guess."""
+        self.assertEqual(
+            aggregate.page_anomalies({"2026-01": {"/en/stable/a.html": 9}},
+                                     ["2026-01"]), [])
+
+    def days(self, values, start=1):
+        base = datetime.date(2026, 1, 1) + datetime.timedelta(days=start - 1)
+        return [((base + datetime.timedelta(days=i)).isoformat(), v)
+                for i, v in enumerate(values)]
+
+    def test_a_spike_above_the_trailing_median_is_flagged(self):
+        days = self.days([100] * 90 + [400])
+        self.assertEqual([d for d, _, _ in aggregate.day_anomalies(days)],
+                         [days[-1][0]])
+
+    def test_an_ordinary_day_is_not(self):
+        days = self.days([100] * 90 + [140])
+        self.assertEqual(aggregate.day_anomalies(days), [])
+
+    def test_no_day_is_judged_before_the_window_is_full(self):
+        """A tracker being set up rises 40x in two months, and against a median
+        drawn from the ramp every ordinary day after it reads as a spike.
+        Waiting for a full window is what keeps that out."""
+        ramp = self.days([2000] * 30 + [80000] * 40)
+        self.assertEqual(aggregate.day_anomalies(ramp), [])
+
+    def test_a_settled_higher_level_stops_being_a_spike(self):
+        """Growth is not an anomaly: once the new level fills the window it is
+        the median, and the days stop being flagged."""
+        days = self.days([2000] * 45 + [80000] * 200)
+        flagged = [d for d, _, _ in aggregate.day_anomalies(days)]
+        self.assertTrue(all(d < "2026-06" for d in flagged), flagged)
 
 
 class TestRemovalDates(unittest.TestCase):

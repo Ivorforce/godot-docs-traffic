@@ -22,6 +22,7 @@ import collections
 import datetime
 import json
 import re
+import statistics
 import sys
 import urllib.parse
 from pathlib import Path
@@ -64,6 +65,18 @@ def month_start_ts(month):
     start = datetime.date.fromisoformat(plausible.month_range(month)[0])
     return int(datetime.datetime.combine(
         start, datetime.time(), datetime.timezone.utc).timestamp())
+
+
+def redirect_map(inventory):
+    """{source: destination} from the ordered rules in `_static/redirects.csv`.
+
+    Later duplicate sources are unreachable — 404.rst stops at the first match —
+    so the first one wins here too.
+    """
+    out = {}
+    for source, destination in inventory.get("redirects", []):
+        out.setdefault(source, destination)
+    return out
 
 
 def redirect_for(url, redirects):
@@ -121,13 +134,28 @@ def load_en_other(month):
                if not row["p"].startswith(URL_PREFIX))
 
 
+def load_editions_month(month):
+    """{canonical url: pageviews} for every English edition in one month.
+
+    The traffic checks read this rather than `load_docs_month`, because an
+    anomaly does not respect the report's window. The burst these checks were
+    written for landed inside `/en/stable/`, but a fetch that started answering
+    for the wrong hostname, or a scraper working a pinned release, shows up
+    outside it and would be invisible to a check that filtered first.
+    """
+    out = collections.Counter()
+    for row in store.read("docs-en", month):
+        out[canonical(row["p"])] += row["pv"]
+    return out
+
+
 def i18n_key(rest):
     """Fold a translated path onto the key `build_docs` derives from a canonical
     English URL, which is `index.html` for the manual's landing page.
 
     A reader at `/ja/stable/` leaves an *empty* remainder, not one ending in
     "/", so the directory rule alone misses it — and that one path is the
-    largest single key in the file (4% of all translated reading).
+    largest single key in the file (4% of all translated traffic).
     """
     if not rest or rest.endswith("/"):
         rest += "index.html"
@@ -140,7 +168,7 @@ def read_i18n(month, field="c"):
     `field` picks the edition: "c" is the current docs in each language, the
     only figure comparable with the English side, which is `/en/stable/` alone.
     "pv" is every version, which is not a translation share but is a real number
-    about how translated reading is spread.
+    about how translated traffic is spread.
 
     `language` is None unless the file was fetched with `--by-language`, which
     is off by default because nothing on the page reads it.
@@ -349,11 +377,7 @@ def build_docs(months, inventory):
             sections[top][month] += pv
 
     removed = inventory.get("removed", {})
-    # Later duplicate sources are unreachable — 404.rst stops at the first
-    # match — so the first one wins here too.
-    redirects = {}
-    for source, destination in inventory.get("redirects", []):
-        redirects.setdefault(source, destination)
+    redirects = redirect_map(inventory)
 
     window_start = month_start_ts(newest)
     kinds, urls = collections.Counter(), collections.Counter()
@@ -386,18 +410,246 @@ def build_docs(months, inventory):
         "redirectCount": len(redirects),
         "windowStart": window_start,
         "matchedViews": sum(matched.values()),
-        # English reading outside /en/stable/ — the pinned releases and
+        # English traffic outside /en/stable/ — the pinned releases and
         # /en/latest/. Excluded from every figure on the page, and the larger
-        # of the two editions exclusions, so it is a number in a tile rather
-        # than a sentence about a number nobody can see.
+        # of the two editions exclusions, so the caveat naming it names a
+        # number rather than gesturing at one nobody can see.
         "enOtherVersions": load_en_other(newest),
         "i18nViews": sum(i18n.values()),
-        # Translated reading outside /xx/stable/: excluded from every share on
+        # Translated traffic outside /xx/stable/: excluded from every share on
         # the page, since the English side it is compared against is stable
-        # only. Emitted so the exclusion is a number on the page rather than a
-        # sentence about a number nobody can see.
+        # only. Emitted for the same caveat, for the same reason.
         "i18nOtherVersions": sum(load_i18n(newest, "pv").values()) - sum(i18n.values()),
     }
+
+
+# --------------------------------------------------------------------------
+# Integrity checks
+#
+# Nothing below reaches docs/data.js. These exist because the report publishes
+# unattended — .github/workflows/update.yml commits a new docs/data.js on the
+# 2nd of every month — and both failures they look for are silent. A month
+# where one URL took 81% of the traffic reads as an ordinary month in every
+# figure the page draws; the numbers are simply about something other than
+# reading.
+# --------------------------------------------------------------------------
+
+# A page has to gain this share of a month's pageviews to be called anomalous.
+# Measured as excess pageviews rather than as a ratio, because both incidents
+# in the stored history rose from a baseline of zero, where every ratio is
+# infinite and a ratio rule fires on every newly added page instead. One
+# percent is about 17,000 pageviews here: a page must gain a small section's
+# worth of reading in a month to trip it.
+ANOMALY_SHARE = 0.01
+
+# A day is anomalous at this multiple of the trailing median day. The bursts on
+# record ran 3.3x to 8.8x; no release in the window produced a day above 2x.
+ANOMALY_DAY_RATIO = 3
+ANOMALY_DAY_WINDOW = 90
+
+# How many flagged days --check prints, newest first. The stored history holds
+# more than fit on a screen and the old ones are settled; the count and the
+# oldest date are printed either way, so the cut is visible.
+SPIKE_LIMIT = 20
+
+
+def page_anomalies(history, months, share=ANOMALY_SHARE):
+    """[(excess, url, baseline, views)] for the newest month, largest first.
+
+    The baseline is each URL's *median* over the earlier months rather than its
+    mean or its previous month, so a burst that has already happened does not
+    raise the bar for the months after it — May 2026 is checked against a
+    baseline the April incident cannot move.
+
+    This is a check on the data, not on the docs: a page can legitimately gain
+    a percent of a month, and one or two rows a month is the normal reading.
+    What it answers is whether a figure on the page is about people.
+    """
+    if len(months) < 2:
+        return []
+    newest, earlier = months[-1], months[:-1]
+    current = history[newest]
+    floor = share * sum(current.values())
+    out = []
+    for url, views in current.items():
+        baseline = statistics.median([history[m].get(url, 0) for m in earlier])
+        if views - baseline >= floor:
+            out.append((views - baseline, url, baseline, views))
+    out.sort(reverse=True)
+    return out
+
+
+def day_anomalies(days, ratio=ANOMALY_DAY_RATIO, window=ANOMALY_DAY_WINDOW):
+    """[(day, views, median)] for days standing above their trailing median.
+
+    The daily series covers the whole docs site, so this arm sees what the
+    per-page arm cannot: `data/raw/docs-en-*.ndjson` is English only, and the
+    largest bursts on record — November and December 2025, about 3M pageviews a
+    month — are not in it at all. It says when, and the per-page arm says what;
+    neither alone would have named both incidents.
+
+    Trailing rather than whole-history, so a site that grows is not compared
+    against its first year forever. **A day is not judged until the window
+    behind it is full**, which is the whole handling of the one case a trailing
+    median reads backwards: docs pageviews rose 40x over the two months the
+    tracker was being set up, and measured against a median drawn from that ramp
+    every ordinary day after it clears the line. Waiting for 90 days puts enough
+    of the new level in the window that the ramp stops being the baseline. Ten
+    days of March 2025 are the difference, and not one of them is an event.
+    """
+    out = []
+    for i, (day, views) in enumerate(days):
+        if i + 1 < window:
+            continue
+        median = statistics.median(pv for _, pv in days[i - window + 1:i + 1])
+        if median and views >= ratio * median:
+            out.append((day, views, median))
+    return out
+
+
+def docs_days():
+    """[(date, pageviews)] for docs.godotengine.org, oldest first.
+
+    From `site-daily.ndjson`, which `fetch.py` stores for the README's table
+    about visitor identity. Its pageview column is otherwise unused.
+    """
+    per_day = collections.Counter()
+    for row in store.read("site-daily"):
+        if row["h"] == "docs":
+            per_day[row["d"]] += row["pv"]
+    return sorted(per_day.items())
+
+
+def redirect_walk(url, redirects, pages):
+    """Where a reader who asks for `url` ends up, following 404.rst as it runs.
+
+    Returns (kind, url), kind being "page", "dead", "external" or "cycle".
+
+    A redirect out of `redirects.csv` is applied in the browser, on the 404
+    page. So the destination is fetched as an ordinary request: if it is not a
+    page either, it serves 404.rst again, which consults the same file again.
+    Nothing in that loop notices it has been there before, and each pass fires
+    the analytics script — which is why a cycle is measured in pageviews rather
+    than being merely broken.
+
+    Terminates without a hop limit: every URL after the first comes from a
+    destination in the rule set, so the walk moves through a finite set and the
+    visited set closes it.
+    """
+    seen = set()
+    while url not in seen:
+        if url in pages:
+            return "page", url
+        destination = redirect_for(url, redirects)
+        if destination is None:
+            return "dead", url
+        if not destination.startswith("/"):
+            return "external", destination  # off-site; the reader has left
+        seen.add(url)
+        url = canonical(URL_PREFIX + destination.lstrip("/"))
+    return "cycle", url
+
+
+def redirect_cycles(redirects, pages):
+    """[(source, url)] for rules whose forwarding never lands anywhere.
+
+    Needs no traffic data: it is a property of `redirects.csv` and the page
+    list at the recorded commit. The shape to know is that 404.rst matches by
+    `pathname.endsWith(source)`, so a destination that is *itself* a suffix of
+    its own source matches the same rule again —
+
+        /development/file_formats/index.html
+          -> /engine_details/development/file_formats/index.html   (not a page)
+          -> /engine_details/development/file_formats/index.html   ...
+
+    where the destination carries a `development/` segment the tree does not
+    have. A rule can only be checked against the pages that exist now, so this
+    is about the current docs; older editions have their own tree and are not
+    what `pages` describes.
+    """
+    out = []
+    for source in redirects:
+        kind, end = redirect_walk(
+            canonical(URL_PREFIX + source.lstrip("/")), redirects, pages)
+        if kind == "cycle":
+            out.append((source, end))
+    return out
+
+
+def cycle_views(current, redirects, pages):
+    """(pageviews, [(url, pageviews)]) for trafficked URLs that loop.
+
+    Counted from the URLs readers actually reached, not from the rules, because
+    a rule nobody hits costs nothing. `stale_kind` files every one of these
+    under **redirected** — the bucket the report calls benign, on the ground
+    that the reader arrived where they meant to. In a cycle they did not.
+    """
+    hits = [(url, views) for url, views in current.items()
+            if url not in pages
+            and redirect_walk(url, redirects, pages)[0] == "cycle"]
+    hits.sort(key=lambda pair: -pair[1])
+    return sum(views for _, views in hits), hits
+
+
+def run_checks(months, inventory, verbose):
+    """Print what the two checks found. Never raises and never changes output.
+
+    A warning rather than a failed run, on both counts. The cycles are a bug in
+    godot-docs and not in this report, and a month with a burst in it is still
+    the right month to publish — its page-level figures were unharmed in the one
+    case on record, and only the stale bucket read wrong. What must not happen
+    is publishing it without anyone knowing, which is what this fixes.
+    """
+    newest = months[-1]
+    redirects = redirect_map(inventory)
+    pages = inventory["pages"]
+
+    cycles = redirect_cycles(redirects, pages)
+    looped, hits = cycle_views(load_docs_month(newest), redirects, pages)
+    if cycles:
+        print(f"warning: {len(cycles)} of {len(redirects):,} redirect rules never "
+              f"land — 404.rst forwards them to themselves, and each pass fires "
+              f"a pageview ({looped:,} in {newest})"
+              + ("" if verbose else "; --check lists them"))
+
+    history = {month: load_editions_month(month) for month in months}
+    anomalies = page_anomalies(history, months)
+    if anomalies:
+        print(f"warning: {len(anomalies)} url(s) stand above their own history "
+              f"in {newest}" + ("" if verbose else "; --check lists them"))
+
+    days = docs_days()
+    spikes = day_anomalies(days)
+    recent = [row for row in spikes if row[0][:7] == newest]
+    if recent:
+        print(f"warning: {len(recent)} day(s) in {newest} above "
+              f"{ANOMALY_DAY_RATIO}x the trailing median"
+              + ("" if verbose else "; --check lists them"))
+
+    if not verbose:
+        return
+
+    if cycles:
+        print(f"\nredirect rules that never land ({len(cycles)}):")
+        for source, end in cycles:
+            print(f"  {source}\n      loops on {end}")
+        if hits:
+            print(f"  reached by readers in {newest}:")
+            for url, views in hits:
+                print(f"    {views:>9,}  {url}")
+    if anomalies:
+        print(f"\nurls above their own history in {newest} "
+              f"(>= {ANOMALY_SHARE:.0%} of the month):")
+        for excess, url, baseline, views in anomalies:
+            print(f"  +{excess:>9,.0f}  median {baseline:>9,.0f} -> {views:>9,}  {url}")
+    if spikes:
+        print(f"\ndays above {ANOMALY_DAY_RATIO}x the trailing median "
+              f"({len(spikes)} of {len(days):,}):")
+        for day, views, median in spikes[-SPIKE_LIMIT:]:
+            print(f"  {day}  {views:>9,}  {views / median:5.1f}x median {median:,.0f}")
+        if len(spikes) > SPIKE_LIMIT:
+            print(f"  ({len(spikes) - SPIKE_LIMIT} older not shown, "
+                  f"back to {spikes[0][0]})")
 
 
 def main():
@@ -434,6 +686,7 @@ def main():
     for kind, views in sorted(docs["staleKinds"].items(), key=lambda kv: -kv[1]):
         print(f"    {kind:14} {docs['staleKindUrls'][kind]:>6,} urls {views:>8,} pv")
     print(f"months: {len(months)} ({months[0]} .. {months[-1]})")
+    run_checks(months, inventory, args.check)
 
     if args.check:
         print("\nremoved pages with no redirect:")

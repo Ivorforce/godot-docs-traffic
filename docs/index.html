@@ -61,9 +61,9 @@
   .chart-box.tall { height: 380px; }
   .chart-box.short { height: 170px; }
   /* The scatter is the one chart whose two axes are the same kind of thing —
-     log decades — so a wide box is not a neutral choice: it spreads reading out
-     and squashes length, which tilts the diagonal the top-left corner is read
-     against. Square would be right and is too tall to scroll past, so this
+     log decades — so a wide box is not a neutral choice: it spreads pageviews
+     out and squashes length, which tilts the diagonal the top-left corner is
+     read against. Square would be right and is too tall to scroll past, so this
      splits the difference at roughly 3:2 on a full-width page. It tracks the
      viewport because nothing else here has a breakpoint: a fixed 560px would
      stretch the other way on a phone, where the plot is only some 320px wide.
@@ -219,7 +219,7 @@
   · updated <span id="updated">…</span>
   · <a href="#caveats">caveats</a>
 </p>
-<p class="framing">Which parts of the Godot manual carry the reading, and which
+<p class="framing">Which parts of the Godot manual carry the pageviews, and which
 cost more to maintain than their readership suggests. Page traffic is joined
 against the <a href="https://github.com/godotengine/godot-docs">godot-docs</a>
 source tree, so page length and edit history sit next to the traffic. It is a map
@@ -247,11 +247,11 @@ or the class reference on its own.</p>
 </h2>
 <div class="chart-box tall"><canvas id="chart-sections"></canvas></div>
 <p class="caption" id="sections-note"></p>
-<p class="caption">For each part of the manual, its share of all reading against
+<p class="caption">For each part of the manual, its share of all pageviews against
 its share of the manual's size. Hover a bar for the counts and for pageviews per
 thousand words. The two bars are shares of <em>different</em> totals, so read the
-gap as a ratio: a section at half its share of reading is read half as much per
-word as the manual overall.</p>
+gap as a ratio: a section at half its share of pageviews is opened half as often
+per word as the manual overall.</p>
 <p class="caption">Where the grey bar runs past the blue one, that part is larger
 than its readership — a question worth asking, not an answer. Reference material
 is <em>supposed</em> to be consulted rarely, and a section can be long because
@@ -264,18 +264,18 @@ reference is excluded unless the path bar's first entries put it back.</p>
 
 <h2>What each page costs and returns</h2>
 <div class="chart-box square"><canvas id="chart-scatter"></canvas></div>
-<p class="caption">Every page in the current section: how much it is read
+<p class="caption">Every page in the current section: how much it is viewed
 (horizontal) against how long it is (vertical), both on log scales, with the
 crosshairs at this section's medians rather than at invented thresholds. Pages
-low and to the right are read a lot and say little; pages high and to the left
-are long and seldom read — the ones worth <em>looking at</em>, since length is
+low and to the right are viewed a lot and say little; pages high and to the left
+are long and seldom viewed — the ones worth <em>looking at</em>, since length is
 roughly what a page costs to keep correct. Hover a point for the page; click to
 filter the table below to it.</p>
 <p class="caption">Colour is lines changed over the churn window
 (<span class="churn-window">…</span>) against the page's length now — whether
 anyone is already working on it, the same measure that shades the grid further
 down. <strong>Pale</strong> is the quiet end: a page high, left and pale is long,
-seldom read, and nobody has been near it in two years. The same page in
+seldom viewed, and nobody has been near it in two years. The same page in
 <strong>dark blue</strong> is somebody else's project already, and the useful
 thing to do about it is nothing.</p>
 <p class="caption">A quiet page may be finished rather than forgotten; nothing
@@ -331,8 +331,8 @@ further right than the docs went.</p>
     <tbody></tbody>
   </table>
 </div>
-<p class="caption">The scatter above, read one page at a time. Sorted by reading
-volume; click a column to re-sort, and use the filter box beside the heading to
+<p class="caption">The scatter above, read one page at a time. Sorted by
+pageviews; click a column to re-sort, and use the filter box beside the heading to
 narrow by path — it reaches this table and nothing else on the page.
 <em>Words</em> approximates the prose in the source file — notes and warnings
 counted, code blocks and table markup not. <em>Lines changed</em> is this page's
@@ -349,7 +349,7 @@ so what opens is what was measured.</p>
 the docs present them, each page measured against its own tutorial's landing
 page. Order and grouping come from the table of contents, so a restructure moves
 this chart instead of breaking it. Hover a point for the page and the count
-behind its percentage. The guide is a third of all reading in the hand-written
+behind its percentage. The guide is a third of all pageviews in the hand-written
 manual. This section and the next are fixed — the path bar does not reach
 them.</p>
 <p class="caption" id="funnel-note"></p>
@@ -372,7 +372,7 @@ traffic, and are not forwarded anywhere — so these readers land on the
 <a href="https://github.com/godotengine/godot-docs/blob/master/_static/redirects.csv"><code>_static/redirects.csv</code></a>
 does not yet cover; most removed pages <em>are</em> forwarded by it and are left
 out. A date inside the reporting period means the page was readable for part of
-it, so its count is partly ordinary reading rather than missed arrivals.</p>
+it, so its count is partly ordinary traffic rather than missed arrivals.</p>
 <p class="caption">The URL opens what these readers get, the one link here meant
 to fail; the date opens that page's commits, ending in the one that removed it,
 which is the record a redirect would have to be written from.</p>
@@ -388,8 +388,11 @@ docs commit shown at the top of the page.</p>
         figures — unique visitors, bounce rate, session duration — are not
         reliable on this analytics setup and are used nowhere. It offers neither
         scroll depth nor time on page, so there is no engagement signal at all:
-        nothing here measures whether a page was <em>useful</em>, only how often
-        it was opened.</li>
+        nothing here measures whether a page was <em>read</em>, only how often it
+        was opened. A page that is mostly passed through — a landing page someone
+        opens and leaves for a link in the sidebar — counts the same as one
+        somebody worked through, which flatters landing pages everywhere on this
+        page and in the getting-started chart above especially.</li>
     <li>Analytics run on JavaScript. Bots, LLM crawlers, readers with scripts
         blocked, and everyone reading the docs offline or in the editor's built-in
         help are invisible — and the docs are read in all of those ways.</li>
@@ -399,9 +402,9 @@ docs commit shown at the top of the page.</p>
         under "removed pages with no redirect" so the loss is visible rather
         than silent. Roughly half of it is readers being successfully forwarded
         by the docs' own redirects.</li>
-    <li><strong>Low traffic is not low value.</strong> A page read a few hundred
+    <li><strong>Low traffic is not low value.</strong> A page viewed a few hundred
         times a month may be the one that unblocks a contributor, or matters
-        precisely because it is rarely needed. Every page of the manual was read
+        precisely because it is rarely needed. Every page of the manual was opened
         at least once this period — there is no dead weight to find here, only
         proportion. Every chart proposes candidates for a human to look at, and
         none is a recommendation to delete anything.</li>
@@ -425,10 +428,12 @@ docs commit shown at the top of the page.</p>
         bar's first entries count its 1,079 pages in, or open the report on
         them alone.</li>
     <li>Only English <code>/en/stable/</code> pages are counted in detail.
-        Translated reading is summed across all other languages per page. Both
+        Translated traffic is summed across all other languages per page. Both
         sides count the current docs only, so the pinned releases and
-        <code>/en/latest/</code> are excluded — a fifth of English reading and a
-        sixth of translated reading, each named in its own tile above.</li>
+        <code>/en/latest/</code> are excluded: a further
+        <span class="en-other">…</span> English pageviews and
+        <span class="i18n-other">…</span> translated ones, in no figure on this
+        page.</li>
   </ul>
   <p>Aggregated from Godot's self-hosted Plausible instance. Scripts, metric
      definitions and raw data live in the repository; the page reads a single

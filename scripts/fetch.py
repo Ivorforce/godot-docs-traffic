@@ -51,7 +51,7 @@ DOCS_PATH = re.compile(r"^/([a-z]{2}(?:-[a-z]{2})?)/([^/]+)/(.*)$")
 # branch) and `latest` (master), and both are English-only: `/xx/latest/` drew
 # 769 views in one language and single digits of scanner noise in the rest
 # across 2026-07. The translations have neither. The edition their own language
-# switcher points at is `4.x`, which carried 87% of all translated reading that
+# switcher points at is `4.x`, which carried 87% of all translated traffic that
 # month against 1,552 views for `stable`. What every language does share is that
 # a *pinned release* is spelled as a number — 4.5, 3.6 — so that is what gets
 # excluded, and the rule survives the rename to 5.x that a hardcoded slug would

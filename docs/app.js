@@ -34,7 +34,7 @@ const state = { section: "", corpus: "manual", filter: "", footprint: "words" };
 const charts = {};
 
 const COLORS = {
-  reading: "#0969da",
+  views: "#0969da",
   pages: "#8c959f",
   line: "#0969da",
   muted: "#8c959f",
@@ -57,7 +57,7 @@ const COLORS = {
    The first threshold is the lower quartile rather than zero exactly. Whether
    a quiet page received one typo fix in two years is an accident of who walked
    past it, and splitting there put only 3 pages in the amber bin inside the
-   long-and-seldom-read corner, where the quartile puts 17 — a list someone can
+   long-and-seldom-viewed corner, where the quartile puts 17 — a list someone can
    work through. The last is nameable rather than fitted: a page changed by its
    whole length again was rewritten, and that is the top eighth. */
 const CHURN_BINS = [
@@ -279,8 +279,8 @@ function childrenOf(section) {
     if (section && !r.startsWith(base)) continue;
     const rest = r.slice(base.length);
     // The manual's own landing page has nothing after the prefix. It is the
-    // second most-read page there is, so dropping it silently cost the reading
-    // bars a tenth of their total while leaving the word bars intact.
+    // second most-viewed page there is, so dropping it silently cost the
+    // pageview bars a tenth of their total while leaving the word bars intact.
     const cut = rest ? rest.indexOf("/") : -1;
     const key = !rest ? "(landing page)" : cut === -1 ? rest : rest.slice(0, cut);
     const entry = out.get(key) ||
@@ -409,13 +409,13 @@ const crosshairs = {
     const pad = 6;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText("long · seldom read", area.left + pad, area.top + pad);
+    ctx.fillText("long · seldom viewed", area.left + pad, area.top + pad);
     ctx.textAlign = "right";
-    ctx.fillText("long · widely read", area.right - pad, area.top + pad);
+    ctx.fillText("long · widely viewed", area.right - pad, area.top + pad);
     ctx.textBaseline = "bottom";
-    ctx.fillText("short · widely read", area.right - pad, area.bottom - pad);
+    ctx.fillText("short · widely viewed", area.right - pad, area.bottom - pad);
     ctx.textAlign = "left";
-    ctx.fillText("short · seldom read", area.left + pad, area.bottom - pad);
+    ctx.fillText("short · seldom viewed", area.left + pad, area.bottom - pad);
     ctx.restore();
   },
 };
@@ -429,7 +429,7 @@ function buildSections() {
       // Each label carries its own denominator: the two series are percentages
       // of different totals, and an axis marked only "%" invites reading the
       // gap between them as a single quantity.
-      { label: "reading — % of all pageviews", backgroundColor: COLORS.reading,
+      { label: "pageviews — % of all pageviews", backgroundColor: COLORS.views,
         data: [] },
       { label: "size — % of all words", backgroundColor: COLORS.pages, data: [] },
     ]},
@@ -494,7 +494,7 @@ function buildScatter() {
         tooltip: { callbacks: {
           // The colouring is a ratio, so both sides of it are given here: the
           // bin a point landed in should not have to be trusted on the strength
-          // of a legend key alone. Translation reading rides along because it
+          // of a legend key alone. Translation traffic rides along because it
           // is the other thing worth knowing before editing one named page,
           // even though the chart no longer colours by it.
           label(item) {
@@ -580,18 +580,17 @@ function renderStats() {
     if (running >= total / 2) break;
   }
   const quiet = rows.filter((r) => r[PV] < 100).length;
+  /* A tile's second line says what its figure is of, and nothing else. Both
+     editions exclusions used to ride here on the tile they are missing from,
+     which made one subtitle four times the width of its neighbours and pushed
+     the row out of shape. They are named in the caveats instead, where the rest
+     of what this page does not count already is. */
   const stats = [
-    // Both editions exclusions ride on the tile whose figure they are missing
-    // from: this page counts /en/stable/ and each language's current docs, and
-    // the English side leaves out the larger of the two.
-    ["pageviews", num(total),
-     `${corpus().tile} · ${num(DOCS.enOtherVersions)} on the /en/ editions ` +
-     `this excludes`],
+    ["pageviews", num(total), corpus().tile],
     ["pages", num(rows.length), corpus().pages],
-    ["carry half the reading", num(half), `${pct(half, rows.length)} of pages`],
+    ["carry half the pageviews", num(half), `${pct(half, rows.length)} of pages`],
     ["under 100 views", num(quiet), `${pct(quiet, rows.length)} of pages`],
-    ["read in translation", num(DOCS.i18nViews),
-     `all other languages · ${num(DOCS.i18nOtherVersions)} more on pinned releases`],
+    ["viewed in translation", num(DOCS.i18nViews), "all other languages"],
   ];
   const box = document.getElementById("stats");
   box.replaceChildren(...stats.map(([label, value, sub]) => {
@@ -720,7 +719,7 @@ function toggleMenu(button, wrap, section, label) {
   // are none: the class reference's root menu lists corpora and no sections.
   const heading = !items.some((i) => i.note)
     ? "what this report covers"
-    : section ? `share of ${label} reading` : "share of all reading";
+    : section ? `share of ${label} pageviews` : "share of all pageviews";
   const { menu, entries } = buildMenu(button, heading, items);
   wrap.appendChild(menu);
   button.setAttribute("aria-expanded", "true");
@@ -787,7 +786,7 @@ function renderCrumbs() {
    row, which needs the row to have height. A level can hold far more children
    than that allows: the class reference is 1,079 pages at one level, and drawn
    in full they are a smear a pixel high apiece. So the bars stop at the
-   most-read and what the cap left out is printed underneath, the same as the
+   most-viewed and what the cap left out is printed underneath, the same as the
    churn grid does.
 
    Thirty is above every level the hand-written manual has — tutorials/ is the
@@ -817,7 +816,7 @@ function renderSections() {
 
   document.getElementById("sections-note").textContent =
     children.length > shown.length
-      ? `The ${shown.length} most-read of ${num(children.length)} are shown. ` +
+      ? `The ${shown.length} most-viewed of ${num(children.length)} are shown. ` +
         `Both bars remain shares of the level as a whole, so what is drawn no ` +
         `longer adds up to it.`
       : "";
@@ -828,7 +827,7 @@ function renderScatter() {
   const groups = new Map(CHURN_BINS.map((b) => [b.label, []]));
   for (const row of rows) {
     groups.get(binFor(row).label).push({
-      // A page with no reading at all would fall off a log axis; plotting it
+      // A page with no pageviews at all would fall off a log axis; plotting it
       // just below 1 keeps it visible without claiming it was read.
       x: Math.max(row[PV], 0.5),
       y: Math.max(row[WORDS], 1),
@@ -865,7 +864,7 @@ function renderScatter() {
   charts.scatter.update();
 }
 
-// How lopsided the reading is, in words rather than as a chart: at this
+// How lopsided the traffic is, in words rather than as a chart: at this
 // concentration a cumulative curve is a vertical wall and then a flat line, and
 // the numbers below are the whole of what it had to say.
 function renderConcentration() {
@@ -883,8 +882,8 @@ function renderConcentration() {
     ? `${PREFIX}${corpus().base}${state.section}/`
     : `the ${corpus().tile}`;
   let text =
-    `Of ${num(pv.length)} pages in ${where}, the ${num(rank(50))} most-read carry ` +
-    `half the reading, ${num(rank(80))} carry 80%, and ${num(rank(95))} carry 95% ` +
+    `Of ${num(pv.length)} pages in ${where}, the ${num(rank(50))} most-viewed carry ` +
+    `half the pageviews, ${num(rank(80))} carry 80%, and ${num(rank(95))} carry 95% ` +
     `— the concentration usual for documentation, where most people arrive with ` +
     `one question.`;
   // Only worth saying where there is a quiet end to say it about; a small
@@ -971,17 +970,18 @@ function renderFunnelNote(series) {
     `${s.title}, ${num(s.landing)} pageviews and ${Math.round(s.pages[1].share)}%`);
   document.getElementById("funnel-note").textContent =
     (tallest
-      ? "Every tutorial's landing page is read more than any page inside it. "
+      ? "Every tutorial's landing page is opened more than any page inside it. "
       : "") +
     `Landing page, then the share of it that reaches the first step: ` +
     parts.join("; ") + ".";
 }
 
-/* Four columns: what a page is read, what it costs to keep, and how much of it
-   has moved lately. Which is the scatter above, read one page at a time — its
-   two axes and its colouring — and it is what this report has to say about a
-   page. Four of the eight this table used to carry were dropped, each for its
-   own reason, and the reasons are kept because the columns were plausible.
+/* Four columns: how much a page is viewed, what it costs to keep, and how much
+   of it has moved lately. Which is the scatter above, read one page at a time
+   — its two axes and its colouring — and it is what this report has to say
+   about a page. Four of the eight this table used to carry were dropped, each
+   for its own reason, and the reasons are kept because the columns were
+   plausible.
 
    Month-on-month change was one figure against one other, over two months, and
    the report holds thirteen. Half the manual moved less than 8.5% and the page
@@ -990,12 +990,12 @@ function renderFunnelNote(series) {
    ones: of the thirty largest risers, twenty-three drew under 250 pageviews the
    month before, against a median of 566 across the table, and four of the top
    ten were community/asset_store/, which is a section being published rather
-   than a page being read. A trend wants more than two points and belongs in a
+   than a page being viewed. A trend wants more than two points and belongs in a
    line, not a ratio.
 
-   Translation reading, as a count, ranked pages at 0.93 against pageviews — 42
+   Translation traffic, as a count, ranked pages at 0.93 against pageviews — 42
    of the top 50 were the same pages in nearly the same order. As a share of the
-   page's English reading it ranked them differently, and was cut anyway,
+   page's English pageviews it ranked them differently, and was cut anyway,
    because what it ranked them by is not a fact about the page: against the
    translated coverage in data/l10n.json it measures 0.067, so it does not say
    which pages the translations have reached or which ones an English rewrite
@@ -1456,6 +1456,13 @@ function init() {
     el.textContent = period;
   }
   document.getElementById("updated").textContent = D.generatedAt.slice(0, 10);
+  // The two editions exclusions, in the caveat that explains what they are.
+  for (const el of document.querySelectorAll(".en-other")) {
+    el.textContent = num(DOCS.enOtherVersions);
+  }
+  for (const el of document.querySelectorAll(".i18n-other")) {
+    el.textContent = num(DOCS.i18nOtherVersions);
+  }
   const commit = document.getElementById("commit");
   const link = document.createElement("a");
   link.href = "https://github.com/godotengine/godot-docs/commit/" + DOCS.commit;
